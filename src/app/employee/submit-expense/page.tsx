@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useDropzone } from 'react-dropzone';
 import {
@@ -20,6 +20,14 @@ interface UploadedFile {
   file: File;
   preview: string;
   status: 'uploading' | 'processing' | 'complete' | 'error';
+  data?: {
+    text: string;
+    amount: number;
+    date: string;
+    merchant: string;
+    category: string;
+    confidence_score: number;
+  };
 }
 
 interface ExtractedData {
@@ -30,35 +38,42 @@ interface ExtractedData {
   description: string;
 }
 
+interface MonthlyExpenses {
+  [category: string]: number;
+}
+
 const categories = [
-  'Travel',
-  'Meals & Entertainment',
-  'Office Supplies',
-  'Transportation',
+  'Meals & Dining',
+  'Travel (Flights)',
   'Accommodation',
-  'Software & Services',
-  'Other',
+  'Local Transport',
+  'Office Supplies',
+  'Client Entertainment',
 ];
 
 const policyLimits = {
-  'Travel': 500,
-  'Meals & Entertainment': 100,
-  'Office Supplies': 200,
-  'Transportation': 150,
-  'Accommodation': 300,
-  'Software & Services': 250,
-  'Other': 100,
+  'Meals & Dining': 50,
+  'Travel (Flights)': 1000,
+  'Accommodation': 200,
+  'Local Transport': 30,
+  'Office Supplies': 100,
+  'Client Entertainment': 150,
+};
+
+const monthlyLimits = {
+  'Meals & Dining': 500,
+  'Travel (Flights)': 3000,
+  'Accommodation': 2500,
+  'Local Transport': 500,
+  'Office Supplies': 300,
+  'Client Entertainment': 1000,
 };
 
 // Define dropdown options
-const categoryOptions = [
-  { value: 'travel', label: 'Travel' },
-  { value: 'meals', label: 'Meals' },
-  { value: 'office_supplies', label: 'Office Supplies' },
-  { value: 'software', label: 'Software' },
-  { value: 'equipment', label: 'Equipment' },
-  { value: 'other', label: 'Other' },
-];
+const categoryOptions = categories.map(cat => ({
+  value: cat.toLowerCase().replace(/[\s()&]+/g, '_'),
+  label: cat
+}));
 
 const currencyOptions = [
   { value: 'usd', label: 'USD ($)' },
@@ -68,6 +83,7 @@ const currencyOptions = [
 ];
 
 export default function SubmitExpensePage() {
+  const [isClient, setIsClient] = useState(false);
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [extractedData, setExtractedData] = useState<ExtractedData>({
     merchant: '',
@@ -81,8 +97,77 @@ export default function SubmitExpensePage() {
   const [isSaving, setIsSaving] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedCurrency, setSelectedCurrency] = useState('usd');
+  const [monthlyExpenses, setMonthlyExpenses] = useState<MonthlyExpenses>({});
 
-  const onDrop = useCallback((acceptedFiles: File[]) => {
+  // Use useEffect to mark when component is mounted on client
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  // Fetch monthly expenses when component mounts
+  useEffect(() => {
+    fetchMonthlyExpenses();
+  }, []);
+
+  const fetchMonthlyExpenses = async () => {
+    try {
+      const response = await fetch('/api/monthly-expenses');
+      const result = await response.json();
+      if (result.success) {
+        setMonthlyExpenses(result.data);
+      }
+    } catch (error) {
+      console.error('Error fetching monthly expenses:', error);
+    }
+  };
+
+  const updateMonthlyExpenses = async (category: string, amount: number) => {
+    try {
+      const response = await fetch('/api/monthly-expenses', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ category, amount }),
+      });
+      const result = await response.json();
+      if (result.success) {
+        setMonthlyExpenses(result.data);
+      }
+    } catch (error) {
+      console.error('Error updating monthly expenses:', error);
+    }
+  };
+
+  const processReceipt = async (file: File): Promise<any> => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      console.log('Starting receipt processing for:', file.name);
+      const response = await fetch('/api/process-receipt', {
+        method: 'POST',
+        body: formData,
+      });
+
+      console.log('Response status:', response.status);
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Error response:', errorText);
+        throw new Error(`Failed to process receipt: ${errorText}`);
+      }
+
+      const result = await response.json();
+      console.log('Processing result:', result);
+      return result;
+    } catch (error) {
+      console.error('Error processing receipt:', error);
+      throw error;
+    }
+  };
+
+  const onDrop = useCallback(async (acceptedFiles: File[]) => {
+    console.log('Files dropped:', acceptedFiles.map(f => f.name));
     const newFiles = acceptedFiles.map(file => ({
       file,
       preview: URL.createObjectURL(file),
@@ -90,22 +175,70 @@ export default function SubmitExpensePage() {
     }));
     setFiles(prev => [...prev, ...newFiles]);
 
-    // Simulate OCR processing
-    setTimeout(() => {
-      setFiles(prev =>
-        prev.map(f =>
-          newFiles.find(nf => nf.file === f.file) ? { ...f, status: 'processing' as const } : f
-        )
-      );
-      setTimeout(() => {
+    // Process each file with ML
+    for (const fileData of newFiles) {
+      try {
+        console.log('Processing file:', fileData.file.name);
+        setIsAIProcessing(true);
+        
+        // Update status to processing
         setFiles(prev =>
           prev.map(f =>
-            newFiles.find(nf => nf.file === f.file) ? { ...f, status: 'complete' as const } : f
+            f === fileData
+              ? { ...f, status: 'processing' }
+              : f
           )
         );
-        setIsAIProcessing(false);
-      }, 2000);
-    }, 1000);
+
+        const result = await processReceipt(fileData.file);
+        console.log('Processing completed for:', fileData.file.name, result);
+        
+        if (result.success) {
+          setFiles(prev =>
+            prev.map(f =>
+              f === fileData
+                ? { ...f, status: 'complete', data: result.data }
+                : f
+            )
+          );
+
+          // Update form with the first processed receipt's data
+          if (fileData === newFiles[0]) {
+            setExtractedData({
+              merchant: result.data.merchant || '',
+              date: result.data.date || '',
+              amount: result.data.amount?.toString() || '',
+              category: result.data.category || '',
+              description: result.data.text || '',
+            });
+
+            // Check policy violations
+            if (result.data.amount && result.data.category) {
+              checkPolicyViolations(result.data.category, result.data.amount);
+            }
+          }
+        } else {
+          console.error('Processing failed:', result.error);
+          setFiles(prev =>
+            prev.map(f =>
+              f === fileData
+                ? { ...f, status: 'error' }
+                : f
+            )
+          );
+        }
+      } catch (error) {
+        console.error('Error processing file:', fileData.file.name, error);
+        setFiles(prev =>
+          prev.map(f =>
+            f === fileData
+              ? { ...f, status: 'error' }
+              : f
+          )
+        );
+      }
+    }
+    setIsAIProcessing(false);
   }, []);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -124,12 +257,19 @@ export default function SubmitExpensePage() {
 
   const checkPolicyViolations = (category: string, amount: number) => {
     const violations: string[] = [];
-    const limit = policyLimits[category as keyof typeof policyLimits];
+    const transactionLimit = policyLimits[category as keyof typeof policyLimits];
+    const monthlyLimit = monthlyLimits[category as keyof typeof monthlyLimits];
     
-    if (amount > limit) {
-      violations.push(`Amount exceeds the limit for ${category.toLowerCase()} expenses ($${limit})`);
+    if (amount > transactionLimit) {
+      violations.push(`Amount exceeds the per-transaction limit for ${category.toLowerCase()} (USD $${transactionLimit})`);
     }
 
+    // Check monthly limit
+    const currentMonthlyTotal = (monthlyExpenses[category] || 0) + amount;
+    if (currentMonthlyTotal > monthlyLimit) {
+      violations.push(`Total monthly expenses for ${category.toLowerCase()} (USD $${currentMonthlyTotal.toFixed(2)}) would exceed the monthly limit of USD $${monthlyLimit}`);
+    }
+    
     if (!files.length) {
       violations.push('Receipt is required');
     }
@@ -157,11 +297,53 @@ export default function SubmitExpensePage() {
     e.preventDefault();
     setIsSaving(true);
 
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    setIsSaving(false);
-    // Handle form submission
+    try {
+      const amount = parseFloat(extractedData.amount);
+      if (!isNaN(amount) && extractedData.category) {
+        // Update monthly expenses
+        await updateMonthlyExpenses(extractedData.category, amount);
+      }
+
+      // Here you would submit the form data to your backend
+      const formData = {
+        ...extractedData,
+        receipts: files.map(f => ({
+          preview: f.preview,
+          data: f.data,
+        })),
+        currency: selectedCurrency,
+      };
+
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      console.log('Submitted form data:', formData);
+
+      // Reset form
+      setFiles([]);
+      setExtractedData({
+        merchant: '',
+        date: '',
+        amount: '',
+        category: '',
+        description: '',
+      });
+      setPolicyViolations([]);
+      setSelectedCategory('');
+      setSelectedCurrency('usd');
+
+      // Refresh monthly expenses
+      await fetchMonthlyExpenses();
+    } catch (error) {
+      console.error('Error submitting expense:', error);
+    } finally {
+      setIsSaving(false);
+    }
   };
+
+  // Only render the component content when we're on the client
+  if (!isClient) {
+    return <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">Loading...</div>;
+  }
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -170,7 +352,7 @@ export default function SubmitExpensePage() {
         <p className="text-gray-600">Upload receipts and our AI will help you process them</p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Upload Section */}
         <div className="space-y-6">
           <motion.div
@@ -226,6 +408,11 @@ export default function SubmitExpensePage() {
                         <p className="text-xs text-gray-500">
                           {(file.file.size / 1024).toFixed(0)} KB
                         </p>
+                        {file.data && (
+                          <p className="text-xs text-green-600 mt-1">
+                            Processed with {(file.data.confidence_score * 100).toFixed(0)}% confidence
+                          </p>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-center space-x-4">
@@ -247,8 +434,9 @@ export default function SubmitExpensePage() {
                         <BsExclamationTriangle className="text-red-600" />
                       )}
                       <button
+                        type="button"
                         onClick={() => removeFile(file)}
-                        className="text-gray-400 hover:text-red-600"
+                        className="text-gray-400 hover:text-red-500"
                       >
                         <BsTrash />
                       </button>
@@ -260,42 +448,20 @@ export default function SubmitExpensePage() {
           )}
         </div>
 
-        {/* Expense Details Form */}
-        {files.length > 0 && (
+        {/* Form Section */}
+        <div className="space-y-6">
           <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
             className="bg-white p-6 rounded-xl shadow-sm"
           >
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-lg font-semibold text-gray-900">
-                Expense Details
-              </h2>
-              {isAIProcessing && (
-                <div className="flex items-center text-blue-600">
-                  <BsRobot className="animate-pulse mr-2" />
-                  <span className="text-sm">AI Processing...</span>
-                </div>
-              )}
-            </div>
+            <h2 className="text-lg font-semibold text-gray-900 mb-6">
+              Expense Details
+            </h2>
 
-            {policyViolations.length > 0 && (
-              <div className="mb-6 p-4 bg-red-50 rounded-lg">
-                <div className="flex items-center text-red-800 text-sm font-medium mb-2">
-                  <BsExclamationTriangle className="mr-2" />
-                  Policy Violations Detected
-                </div>
-                <ul className="list-disc list-inside text-sm text-red-600 space-y-1">
-                  {policyViolations.map((violation, index) => (
-                    <li key={index}>{violation}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700">
                   Merchant
                 </label>
                 <input
@@ -307,12 +473,12 @@ export default function SubmitExpensePage() {
                       merchant: e.target.value,
                     }))
                   }
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700">
                   Date
                 </label>
                 <input
@@ -324,49 +490,62 @@ export default function SubmitExpensePage() {
                       date: e.target.value,
                     }))
                   }
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Amount
-                </label>
-                <input
-                  type="text"
-                  value={extractedData.amount}
-                  onChange={(e) => handleAmountChange(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-
-              <div className="space-y-6">
+              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Category
+                  <label className="block text-sm font-medium text-gray-700">
+                    Amount
                   </label>
-                  <Dropdown
-                    options={categoryOptions}
-                    value={selectedCategory}
-                    onChange={setSelectedCategory}
-                    placeholder="Select Category"
-                  />
+                  <div className="mt-1 relative rounded-md shadow-sm">
+                    <input
+                      type="number"
+                      value={extractedData.amount}
+                      onChange={(e) => handleAmountChange(e.target.value)}
+                      className="block w-full rounded-md border-gray-300 pl-7 focus:border-blue-500 focus:ring-blue-500"
+                      placeholder="0.00"
+                      step="0.01"
+                    />
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <span className="text-gray-500 sm:text-sm">$</span>
+                    </div>
+                  </div>
                 </div>
+
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-700">
                     Currency
                   </label>
                   <Dropdown
                     options={currencyOptions}
                     value={selectedCurrency}
                     onChange={setSelectedCurrency}
-                    placeholder="Select Currency"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700">
+                  Category
+                </label>
+                <Dropdown
+                  options={categoryOptions}
+                  value={extractedData.category.toLowerCase().replace(/[\s()&]+/g, '_')}
+                  onChange={(value) =>
+                    handleCategoryChange(
+                      categories.find(
+                        (cat) =>
+                          cat.toLowerCase().replace(/[\s()&]+/g, '_') === value
+                      ) || ''
+                    )
+                  }
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
                   Description
                 </label>
                 <textarea
@@ -378,40 +557,59 @@ export default function SubmitExpensePage() {
                     }))
                   }
                   rows={3}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Add any additional details or justification..."
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                 />
               </div>
-
-              <div className="flex justify-end space-x-4">
-                <button
-                  type="button"
-                  className="px-4 py-2 text-gray-700 hover:text-gray-900"
-                >
-                  Save as Draft
-                </button>
-                <button
-                  type="submit"
-                  disabled={isAIProcessing || isSaving || policyViolations.length > 0}
-                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isSaving ? (
-                    <>
-                      <BsLightning className="animate-pulse mr-2" />
-                      Submitting...
-                    </>
-                  ) : (
-                    <>
-                      Submit for Approval
-                      <BsArrowRight className="ml-2" />
-                    </>
-                  )}
-                </button>
-              </div>
-            </form>
+            </div>
           </motion.div>
-        )}
-      </div>
+
+          {/* Policy Violations */}
+          {policyViolations.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="bg-red-50 p-4 rounded-xl"
+            >
+              <h3 className="text-sm font-medium text-red-800">
+                Policy Violations
+              </h3>
+              <ul className="mt-2 text-sm text-red-700 list-disc list-inside">
+                {policyViolations.map((violation, index) => (
+                  <li key={index}>{violation}</li>
+                ))}
+              </ul>
+            </motion.div>
+          )}
+
+          {/* Submit Button */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="flex justify-end"
+          >
+            <button
+              type="submit"
+              disabled={isSaving || policyViolations.length > 0}
+              className={`inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
+                (isSaving || policyViolations.length > 0) &&
+                'opacity-50 cursor-not-allowed'
+              }`}
+            >
+              {isSaving ? (
+                <>
+                  <BsLightning className="animate-spin -ml-1 mr-2 h-4 w-4" />
+                  Submitting...
+                </>
+              ) : (
+                <>
+                  Submit Expense
+                  <BsArrowRight className="ml-2 h-4 w-4" />
+                </>
+              )}
+            </button>
+          </motion.div>
+        </div>
+      </form>
     </div>
   );
 } 
