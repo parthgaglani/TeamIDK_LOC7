@@ -27,6 +27,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts';
+import { Dropdown } from '@/components/ui/Dropdown';
 
 // Sample data for charts
 const departmentSpending = [
@@ -74,8 +75,25 @@ const savingsOpportunities = [
   },
 ];
 
+// Add dropdown options
+const periodOptions = [
+  { value: 'this_month', label: 'This Month' },
+  { value: 'last_3_months', label: 'Last 3 Months' },
+  { value: 'last_6_months', label: 'Last 6 Months' },
+  { value: 'this_year', label: 'This Year' },
+];
+
+const departmentOptions = [
+  { value: 'all', label: 'All Departments' },
+  { value: 'engineering', label: 'Engineering' },
+  { value: 'marketing', label: 'Marketing' },
+  { value: 'sales', label: 'Sales' },
+  { value: 'hr', label: 'HR' },
+];
+
 export default function AnalyticsPage() {
-  const [selectedPeriod, setSelectedPeriod] = useState('This Month');
+  const [selectedPeriod, setSelectedPeriod] = useState('this_month');
+  const [selectedDepartment, setSelectedDepartment] = useState('all');
 
   const getImpactColor = (impact: string) => {
     switch (impact) {
@@ -93,17 +111,19 @@ export default function AnalyticsPage() {
       </div>
 
       {/* Period Selector */}
-      <div className="mb-8">
-        <select
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        <Dropdown
+          options={periodOptions}
           value={selectedPeriod}
-          onChange={(e) => setSelectedPeriod(e.target.value)}
-          className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-        >
-          <option>This Month</option>
-          <option>Last 3 Months</option>
-          <option>Last 6 Months</option>
-          <option>This Year</option>
-        </select>
+          onChange={setSelectedPeriod}
+          placeholder="Select Period"
+        />
+        <Dropdown
+          options={departmentOptions}
+          value={selectedDepartment}
+          onChange={setSelectedDepartment}
+          placeholder="Select Department"
+        />
       </div>
 
       {/* Overview Cards */}

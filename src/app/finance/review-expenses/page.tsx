@@ -16,6 +16,7 @@ import {
   BsArrowDown,
   BsRobot,
 } from 'react-icons/bs';
+import { Dropdown } from '@/components/ui/Dropdown';
 
 interface ExpenseReport {
   id: string;
@@ -69,15 +70,36 @@ const sampleReports: ExpenseReport[] = [
   },
 ];
 
-const departments = ['All Departments', 'Sales', 'Marketing', 'Engineering', 'Finance', 'HR'];
-const categories = ['All Categories', 'Travel', 'Meals', 'Office Supplies', 'Software', 'Other'];
-const statuses = ['All Status', 'Pending', 'Approved', 'Rejected'];
+const departmentOptions = [
+  { value: 'all', label: 'All Departments' },
+  { value: 'sales', label: 'Sales' },
+  { value: 'marketing', label: 'Marketing' },
+  { value: 'engineering', label: 'Engineering' },
+  { value: 'finance', label: 'Finance' },
+  { value: 'hr', label: 'HR' },
+];
+
+const categoryOptions = [
+  { value: 'all', label: 'All Categories' },
+  { value: 'travel', label: 'Travel' },
+  { value: 'meals', label: 'Meals' },
+  { value: 'office_supplies', label: 'Office Supplies' },
+  { value: 'software', label: 'Software' },
+  { value: 'other', label: 'Other' },
+];
+
+const statusOptions = [
+  { value: 'all', label: 'All Status' },
+  { value: 'pending', label: 'Pending' },
+  { value: 'approved', label: 'Approved' },
+  { value: 'rejected', label: 'Rejected' },
+];
 
 export default function ReviewExpensesPage() {
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedDepartment, setSelectedDepartment] = useState('All Departments');
-  const [selectedCategory, setSelectedCategory] = useState('All Categories');
-  const [selectedStatus, setSelectedStatus] = useState('All Status');
+  const [selectedDepartment, setSelectedDepartment] = useState('all');
+  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedReport, setSelectedReport] = useState<ExpenseReport | null>(null);
 
   const getStatusColor = (status: string) => {
@@ -138,43 +160,35 @@ export default function ReviewExpensesPage() {
                 placeholder="Search by employee or ID..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full pl-10 pr-4 py-2.5 bg-white/80 backdrop-blur-xl border border-gray-200/50 
+                         rounded-xl focus:ring-2 focus:ring-blue-500/30 focus:border-transparent"
               />
               <BsSearch className="absolute left-3 top-3 text-gray-400" />
             </div>
           </div>
           <div>
-            <select
+            <Dropdown
+              options={departmentOptions}
               value={selectedDepartment}
-              onChange={(e) => setSelectedDepartment(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              {departments.map((dept) => (
-                <option key={dept} value={dept}>{dept}</option>
-              ))}
-            </select>
+              onChange={setSelectedDepartment}
+              placeholder="Select Department"
+            />
           </div>
           <div>
-            <select
+            <Dropdown
+              options={categoryOptions}
               value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              {categories.map((cat) => (
-                <option key={cat} value={cat}>{cat}</option>
-              ))}
-            </select>
+              onChange={setSelectedCategory}
+              placeholder="Select Category"
+            />
           </div>
           <div>
-            <select
+            <Dropdown
+              options={statusOptions}
               value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              {statuses.map((status) => (
-                <option key={status} value={status}>{status}</option>
-              ))}
-            </select>
+              onChange={setSelectedStatus}
+              placeholder="Select Status"
+            />
           </div>
         </div>
       </motion.div>

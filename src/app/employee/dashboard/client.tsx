@@ -25,6 +25,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
+import { Dropdown } from '@/components/ui/Dropdown';
 
 // Sample data for spending trends
 const spendingTrends = [
@@ -91,8 +92,16 @@ const notifications = [
   },
 ];
 
+// Add period options
+const periodOptions = [
+  { value: 'this_month', label: 'This Month' },
+  { value: 'last_3_months', label: 'Last 3 Months' },
+  { value: 'last_6_months', label: 'Last 6 Months' },
+  { value: 'this_year', label: 'This Year' },
+];
+
 export function DashboardClient() {
-  const [selectedPeriod, setSelectedPeriod] = useState('This Month');
+  const [selectedPeriod, setSelectedPeriod] = useState('this_month');
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -189,16 +198,13 @@ export function DashboardClient() {
         >
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-lg font-semibold text-gray-900">Spending Trends</h2>
-            <select
+            <Dropdown
+              options={periodOptions}
               value={selectedPeriod}
-              onChange={(e) => setSelectedPeriod(e.target.value)}
-              className="text-sm border border-gray-300 rounded-lg px-3 py-1"
-            >
-              <option>This Month</option>
-              <option>Last 3 Months</option>
-              <option>Last 6 Months</option>
-              <option>This Year</option>
-            </select>
+              onChange={setSelectedPeriod}
+              className="w-48"
+              placeholder="Select Period"
+            />
           </div>
           <div className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">

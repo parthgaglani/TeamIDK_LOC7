@@ -26,6 +26,7 @@ import {
   ResponsiveContainer,
   Cell,
 } from 'recharts';
+import { Dropdown } from '@/components/ui/Dropdown';
 
 // Sample data for charts
 const monthlySpending = [
@@ -70,8 +71,16 @@ const pendingApprovals = [
   },
 ];
 
+// Add period options
+const periodOptions = [
+  { value: 'this_month', label: 'This Month' },
+  { value: 'last_3_months', label: 'Last 3 Months' },
+  { value: 'last_6_months', label: 'Last 6 Months' },
+  { value: 'this_year', label: 'This Year' },
+];
+
 export default function ManagerDashboardPage() {
-  const [selectedPeriod, setSelectedPeriod] = useState('This Month');
+  const [selectedPeriod, setSelectedPeriod] = useState('this_month');
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -178,16 +187,12 @@ export default function ManagerDashboardPage() {
       >
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-lg font-semibold text-gray-900">Monthly Spending</h2>
-          <select
+          <Dropdown
+            options={periodOptions}
             value={selectedPeriod}
-            onChange={(e) => setSelectedPeriod(e.target.value)}
-            className="text-sm border border-gray-300 rounded-lg px-3 py-1"
-          >
-            <option>This Month</option>
-            <option>Last 3 Months</option>
-            <option>Last 6 Months</option>
-            <option>This Year</option>
-          </select>
+            onChange={setSelectedPeriod}
+            className="w-48"
+          />
         </div>
         <div className="h-[300px]">
           <ResponsiveContainer width="100%" height="100%">

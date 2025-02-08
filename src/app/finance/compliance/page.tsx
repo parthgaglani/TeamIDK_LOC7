@@ -27,6 +27,7 @@ import {
   Pie,
   Cell,
 } from 'recharts';
+import { Dropdown } from '@/components/ui/Dropdown';
 
 // Sample data for charts
 const violationsByDepartment = [
@@ -75,8 +76,24 @@ const recentViolations = [
   },
 ];
 
+// Add dropdown options
+const periodOptions = [
+  { value: 'this_month', label: 'This Month' },
+  { value: 'last_3_months', label: 'Last 3 Months' },
+  { value: 'last_6_months', label: 'Last 6 Months' },
+  { value: 'this_year', label: 'This Year' },
+];
+
+const statusOptions = [
+  { value: 'all', label: 'All Status' },
+  { value: 'compliant', label: 'Compliant' },
+  { value: 'non_compliant', label: 'Non-Compliant' },
+  { value: 'pending', label: 'Pending Review' },
+];
+
 export default function CompliancePage() {
-  const [selectedPeriod, setSelectedPeriod] = useState('This Month');
+  const [selectedPeriod, setSelectedPeriod] = useState('this_month');
+  const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedDepartment, setSelectedDepartment] = useState('All Departments');
 
   const getSeverityColor = (severity: string) => {
@@ -181,18 +198,21 @@ export default function CompliancePage() {
         animate={{ opacity: 1, y: 0 }}
         className="bg-white p-6 rounded-xl shadow-sm mb-8"
       >
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <select
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+          <Dropdown
+            options={periodOptions}
             value={selectedPeriod}
-            onChange={(e) => setSelectedPeriod(e.target.value)}
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
-            <option>This Month</option>
-            <option>Last 3 Months</option>
-            <option>Last 6 Months</option>
-            <option>This Year</option>
-          </select>
-
+            onChange={setSelectedPeriod}
+            placeholder="Select Period"
+          />
+          <Dropdown
+            options={statusOptions}
+            value={selectedStatus}
+            onChange={setSelectedStatus}
+            placeholder="Select Status"
+          />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <select
             value={selectedDepartment}
             onChange={(e) => setSelectedDepartment(e.target.value)}

@@ -14,6 +14,7 @@ import {
   BsReceipt,
   BsArrowRight,
 } from 'react-icons/bs';
+import { Dropdown } from '@/components/ui/Dropdown';
 
 interface ExpenseReport {
   id: string;
@@ -87,9 +88,34 @@ const sampleReports: ExpenseReport[] = [
   },
 ];
 
+// Add dropdown options
+const periodOptions = [
+  { value: 'this_month', label: 'This Month' },
+  { value: 'last_3_months', label: 'Last 3 Months' },
+  { value: 'last_6_months', label: 'Last 6 Months' },
+  { value: 'this_year', label: 'This Year' },
+];
+
+const statusOptions = [
+  { value: 'all', label: 'All Status' },
+  { value: 'pending', label: 'Pending' },
+  { value: 'approved', label: 'Approved' },
+  { value: 'rejected', label: 'Rejected' },
+];
+
+const departmentOptions = [
+  { value: 'all', label: 'All Departments' },
+  { value: 'engineering', label: 'Engineering' },
+  { value: 'marketing', label: 'Marketing' },
+  { value: 'sales', label: 'Sales' },
+  { value: 'hr', label: 'HR' },
+];
+
 export default function ApprovalsPage() {
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedDepartment, setSelectedDepartment] = useState('All Departments');
+  const [selectedPeriod, setSelectedPeriod] = useState('this_month');
+  const [selectedStatus, setSelectedStatus] = useState('all');
+  const [selectedDepartment, setSelectedDepartment] = useState('all');
   const [selectedCategory, setSelectedCategory] = useState('All Categories');
   const [expandedReport, setExpandedReport] = useState<string | null>(null);
   const [comment, setComment] = useState('');
@@ -150,16 +176,26 @@ export default function ApprovalsPage() {
             />
             <BsSearch className="absolute left-3 top-3 text-gray-400" />
           </div>
-          <select
-            value={selectedDepartment}
-            onChange={(e) => setSelectedDepartment(e.target.value)}
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
-            <option>All Departments</option>
-            <option>Sales</option>
-            <option>Marketing</option>
-            <option>Engineering</option>
-          </select>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <Dropdown
+              options={periodOptions}
+              value={selectedPeriod}
+              onChange={setSelectedPeriod}
+              placeholder="Select Period"
+            />
+            <Dropdown
+              options={statusOptions}
+              value={selectedStatus}
+              onChange={setSelectedStatus}
+              placeholder="Select Status"
+            />
+            <Dropdown
+              options={departmentOptions}
+              value={selectedDepartment}
+              onChange={setSelectedDepartment}
+              placeholder="Select Department"
+            />
+          </div>
           <select
             value={selectedCategory}
             onChange={(e) => setSelectedCategory(e.target.value)}

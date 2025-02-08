@@ -23,6 +23,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
+import { Dropdown } from '@/components/ui/Dropdown';
 
 // Sample data for spending analysis
 const monthlySpending = [
@@ -78,15 +79,35 @@ const expenseHistory = [
   },
 ];
 
-const categories = ['All', 'Travel', 'Meals', 'Office', 'Transportation', 'Accommodation', 'Other'];
-const statuses = ['All', 'Pending', 'Approved', 'Rejected'];
-const dateRanges = ['Last 7 days', 'Last 30 days', 'Last 3 months', 'Last 6 months', 'This year'];
+// Define dropdown options
+const periodOptions = [
+  { value: 'this_month', label: 'This Month' },
+  { value: 'last_3_months', label: 'Last 3 Months' },
+  { value: 'last_6_months', label: 'Last 6 Months' },
+  { value: 'this_year', label: 'This Year' },
+];
+
+const statusOptions = [
+  { value: 'all', label: 'All Status' },
+  { value: 'pending', label: 'Pending' },
+  { value: 'approved', label: 'Approved' },
+  { value: 'rejected', label: 'Rejected' },
+];
+
+const categoryOptions = [
+  { value: 'all', label: 'All Categories' },
+  { value: 'travel', label: 'Travel' },
+  { value: 'meals', label: 'Meals' },
+  { value: 'office_supplies', label: 'Office Supplies' },
+  { value: 'software', label: 'Software' },
+  { value: 'other', label: 'Other' },
+];
 
 export default function ExpenseHistoryPage() {
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('All');
-  const [selectedStatus, setSelectedStatus] = useState('All');
-  const [selectedDateRange, setSelectedDateRange] = useState('Last 30 days');
+  const [selectedPeriod, setSelectedPeriod] = useState('this_month');
+  const [selectedStatus, setSelectedStatus] = useState('all');
+  const [selectedCategory, setSelectedCategory] = useState('all');
   const [expandedExpense, setExpandedExpense] = useState<number | null>(null);
   const [sortBy, setSortBy] = useState<'date' | 'amount'>('date');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
@@ -95,8 +116,8 @@ export default function ExpenseHistoryPage() {
   const filteredExpenses = expenseHistory
     .filter(expense => {
       const matchesSearch = expense.merchant.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesCategory = selectedCategory === 'All' || expense.category === selectedCategory;
-      const matchesStatus = selectedStatus === 'All' || expense.status === selectedStatus.toLowerCase();
+      const matchesCategory = selectedCategory === 'all' || expense.category === selectedCategory;
+      const matchesStatus = selectedStatus === 'all' || expense.status === selectedStatus.toLowerCase();
       return matchesSearch && matchesCategory && matchesStatus;
     })
     .sort((a, b) => {
@@ -140,30 +161,25 @@ export default function ExpenseHistoryPage() {
         animate={{ opacity: 1, y: 0 }}
         className="bg-white p-6 rounded-xl shadow-sm mb-8"
       >
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-lg font-semibold text-gray-900">Spending Analysis</h2>
-          <select
-            value={selectedDateRange}
-            onChange={(e) => setSelectedDateRange(e.target.value)}
-            className="text-sm border border-gray-300 rounded-lg px-3 py-1"
-          >
-            {dateRanges.map((range) => (
-              <option key={range} value={range}>
-                {range}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="h-[200px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={monthlySpending}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="month" />
-              <YAxis />
-              <Tooltip />
-              <Bar dataKey="amount" fill="#3B82F6" />
-            </BarChart>
-          </ResponsiveContainer>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Dropdown
+            options={periodOptions}
+            value={selectedPeriod}
+            onChange={setSelectedPeriod}
+            placeholder="Select Period"
+          />
+          <Dropdown
+            options={statusOptions}
+            value={selectedStatus}
+            onChange={setSelectedStatus}
+            placeholder="Select Status"
+          />
+          <Dropdown
+            options={categoryOptions}
+            value={selectedCategory}
+            onChange={setSelectedCategory}
+            placeholder="Select Category"
+          />
         </div>
       </motion.div>
 
@@ -179,30 +195,6 @@ export default function ExpenseHistoryPage() {
           />
           <BsSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
         </div>
-
-        <select
-          value={selectedCategory}
-          onChange={(e) => setSelectedCategory(e.target.value)}
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-        >
-          {categories.map((category) => (
-            <option key={category} value={category}>
-              {category} Categories
-            </option>
-          ))}
-        </select>
-
-        <select
-          value={selectedStatus}
-          onChange={(e) => setSelectedStatus(e.target.value)}
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-        >
-          {statuses.map((status) => (
-            <option key={status} value={status}>
-              {status} Status
-            </option>
-          ))}
-        </select>
 
         <div className="flex space-x-2">
           <button

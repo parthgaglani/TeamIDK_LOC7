@@ -14,6 +14,7 @@ import {
   BsReceipt,
   BsLightning,
 } from 'react-icons/bs';
+import { Dropdown } from '@/components/ui/Dropdown';
 
 interface UploadedFile {
   file: File;
@@ -49,6 +50,23 @@ const policyLimits = {
   'Other': 100,
 };
 
+// Define dropdown options
+const categoryOptions = [
+  { value: 'travel', label: 'Travel' },
+  { value: 'meals', label: 'Meals' },
+  { value: 'office_supplies', label: 'Office Supplies' },
+  { value: 'software', label: 'Software' },
+  { value: 'equipment', label: 'Equipment' },
+  { value: 'other', label: 'Other' },
+];
+
+const currencyOptions = [
+  { value: 'usd', label: 'USD ($)' },
+  { value: 'eur', label: 'EUR (€)' },
+  { value: 'gbp', label: 'GBP (£)' },
+  { value: 'jpy', label: 'JPY (¥)' },
+];
+
 export default function SubmitExpensePage() {
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [extractedData, setExtractedData] = useState<ExtractedData>({
@@ -61,43 +79,30 @@ export default function SubmitExpensePage() {
   const [policyViolations, setPolicyViolations] = useState<string[]>([]);
   const [isAIProcessing, setIsAIProcessing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState('');
+  const [selectedCurrency, setSelectedCurrency] = useState('usd');
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
-    const newFiles: UploadedFile[] = acceptedFiles.map(file => ({
+    const newFiles = acceptedFiles.map(file => ({
       file,
       preview: URL.createObjectURL(file),
-      status: 'uploading',
+      status: 'uploading' as const,
     }));
     setFiles(prev => [...prev, ...newFiles]);
-    setIsAIProcessing(true);
 
-    // Simulate OCR and AI processing
+    // Simulate OCR processing
     setTimeout(() => {
       setFiles(prev =>
         prev.map(f =>
-          newFiles.find(nf => nf.file === f.file) ? { ...f, status: 'processing' } : f
+          newFiles.find(nf => nf.file === f.file) ? { ...f, status: 'processing' as const } : f
         )
       );
-
-      // Simulate AI extraction
       setTimeout(() => {
         setFiles(prev =>
           prev.map(f =>
-            newFiles.find(nf => nf.file === f.file) ? { ...f, status: 'complete' } : f
+            newFiles.find(nf => nf.file === f.file) ? { ...f, status: 'complete' as const } : f
           )
         );
-
-        // Simulate extracted data
-        setExtractedData({
-          merchant: 'Airline Company',
-          date: '2024-03-20',
-          amount: '850.00',
-          category: 'Travel',
-          description: 'Business flight ticket',
-        });
-
-        // Check policy violations
-        checkPolicyViolations('Travel', 850);
         setIsAIProcessing(false);
       }, 2000);
     }, 1000);
@@ -335,27 +340,29 @@ export default function SubmitExpensePage() {
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Category
-                </label>
-                <select
-                  value={extractedData.category}
-                  onChange={(e) => handleCategoryChange(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="">Select a category</option>
-                  {categories.map((category) => (
-                    <option key={category} value={category}>
-                      {category}
-                    </option>
-                  ))}
-                </select>
-                {extractedData.category && (
-                  <p className="mt-1 text-sm text-gray-500">
-                    Limit: ${policyLimits[extractedData.category as keyof typeof policyLimits]}
-                  </p>
-                )}
+              <div className="space-y-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Category
+                  </label>
+                  <Dropdown
+                    options={categoryOptions}
+                    value={selectedCategory}
+                    onChange={setSelectedCategory}
+                    placeholder="Select Category"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Currency
+                  </label>
+                  <Dropdown
+                    options={currencyOptions}
+                    value={selectedCurrency}
+                    onChange={setSelectedCurrency}
+                    placeholder="Select Currency"
+                  />
+                </div>
               </div>
 
               <div>
