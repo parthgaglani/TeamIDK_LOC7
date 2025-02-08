@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/lib/AuthContext';
 import { signOutUser } from '@/lib/firebase';
@@ -21,47 +21,50 @@ import {
   BsPeople,
   BsShield,
   BsSliders,
+  BsGrid,
+  BsClipboardCheck,
+  BsShieldExclamation,
+  BsPlus,
 } from 'react-icons/bs';
+import { IconType } from 'react-icons';
+import { UserRole } from '@/lib/types';
+
+interface NavItem {
+  href: string;
+  label: string;
+  icon: IconType;
+}
 
 // Navigation items for different user roles
-const roleBasedNavItems = {
-  employee: [
-    { name: 'Dashboard', href: '/employee/dashboard', icon: BsSpeedometer2 },
-    { name: 'Submit Expense', href: '/employee/submit-expense', icon: BsReceipt },
-    { name: 'Expense History', href: '/employee/expense-history', icon: BsClockHistory },
-    { name: 'AI Assistant', href: '/employee/ai-assistant', icon: BsChatDots },
-  ],
-  finance: [
-    { name: 'Dashboard', href: '/finance/dashboard', icon: BsSpeedometer2 },
-    { name: 'Review Reports', href: '/finance/review-expenses', icon: BsReceipt },
-    { name: 'Fraud Detection', href: '/finance/fraud-detection', icon: BsShieldCheck },
-    { name: 'Compliance', href: '/finance/compliance', icon: BsShield },
-  ],
-  manager: [
-    { name: 'Dashboard', href: '/manager/dashboard', icon: BsSpeedometer2 },
-    { name: 'Approvals', href: '/manager/approvals', icon: BsCheckCircle },
-    { name: 'Analytics', href: '/manager/analytics', icon: BsGraphUp },
-  ],
-} as const;
+const financeLinks: NavItem[] = [
+  { href: '/finance/dashboard', label: 'Dashboard', icon: BsGrid },
+  { href: '/finance/review-expenses', label: 'Review & Approve', icon: BsClipboardCheck },
+  { href: '/finance/fraud-detection', label: 'Fraud Detection', icon: BsShieldExclamation },
+  { href: '/finance/compliance', label: 'Compliance', icon: BsShieldCheck },
+  { href: '/finance/analytics', label: 'Analytics', icon: BsGraphUp },
+];
+
+const employeeLinks: NavItem[] = [
+  { href: '/employee/dashboard', label: 'Dashboard', icon: BsGrid },
+  { href: '/employee/expenses', label: 'My Expenses', icon: BsReceipt },
+  { href: '/employee/submit', label: 'Submit Expense', icon: BsPlus },
+];
+
+const roleLinks: Record<Exclude<UserRole, 'manager'>, NavItem[]> = {
+  finance: financeLinks,
+  employee: employeeLinks,
+};
 
 const Navigation = ({ children }: { children: React.ReactNode }) => {
+  const [mounted, setMounted] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const pathname = usePathname();
   const { userData, loading } = useAuth();
-
-  const handleSignOut = async () => {
-    try {
-      await signOutUser();
-    } catch (error) {
-      console.error('Error signing out:', error);
-    }
-  };
-
-  const navigationItems = userData?.role ? roleBasedNavItems[userData.role] : [];
-  const isAuthenticated = !!userData;
+  const router = useRouter();
 
   useEffect(() => {
+    setMounted(true);
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 10);
     };
@@ -69,6 +72,23 @@ const Navigation = ({ children }: { children: React.ReactNode }) => {
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  const handleSignOut = async () => {
+    try {
+      await signOutUser();
+      router.push('/');
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
+  };
+
+  const navigationItems = userData?.role && userData.role !== 'manager' ? roleLinks[userData.role] : [];
+  const isAuthenticated = !!userData;
+
+  // Prevent hydration mismatch by not rendering until mounted
+  if (!mounted) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -102,7 +122,7 @@ const Navigation = ({ children }: { children: React.ReactNode }) => {
                   const isActive = pathname === item.href;
                   return (
                     <Link
-                      key={item.name}
+                      key={item.label}
                       href={item.href}
                       className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center ${
                         isActive
@@ -111,7 +131,7 @@ const Navigation = ({ children }: { children: React.ReactNode }) => {
                       }`}
                     >
                       <item.icon className="mr-2 text-lg" />
-                      {item.name}
+                      {item.label}
                     </Link>
                   );
                 })}
@@ -161,7 +181,7 @@ const Navigation = ({ children }: { children: React.ReactNode }) => {
                             </p>
                           </div>
                           <Link
-                            href={`/${userData.role}/profile`}
+                            href="/profile"
                             className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
                           >
                             <BsPerson className="mr-2" />
@@ -214,7 +234,7 @@ const Navigation = ({ children }: { children: React.ReactNode }) => {
               const isActive = pathname === item.href;
               return (
                 <Link
-                  key={item.name}
+                  key={item.label}
                   href={item.href}
                   className={`flex flex-col items-center py-2 rounded-lg text-xs transition-colors ${
                     isActive
@@ -223,7 +243,7 @@ const Navigation = ({ children }: { children: React.ReactNode }) => {
                   }`}
                 >
                   <item.icon className="text-lg mb-1" />
-                  {item.name}
+                  {item.label}
                 </Link>
               );
             })}

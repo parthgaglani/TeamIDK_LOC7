@@ -7,8 +7,9 @@ import Navigation from '@/components/Navigation';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'ExpenseAI',
-  description: 'AI-powered expense management',
+  title: 'ExpenseAI - Smart Expense Management',
+  description: 'AI-powered expense management platform for modern businesses',
+  keywords: 'expense management, AI, automation, business, finance',
 };
 
 export default function RootLayout({

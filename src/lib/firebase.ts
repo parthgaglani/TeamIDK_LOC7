@@ -1,162 +1,109 @@
 'use client';
 
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, User } from 'firebase/auth';
-import { getFirestore, doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
+import { 
+  getAuth, 
+  createUserWithEmailAndPassword, 
+  signInWithEmailAndPassword, 
+  signOut, 
+  onAuthStateChanged,
+  User,
+  AuthError 
+} from 'firebase/auth';
+import { 
+  getFirestore, 
+  doc, 
+  setDoc, 
+  getDoc, 
+  serverTimestamp 
+} from 'firebase/firestore';
+import { SignJWT } from 'jose';
 import { setSessionCookie, removeSessionCookie } from './session';
 import firebaseConfig from './firebase-config';
+import type { UserRole, UserData } from './types';
 
 // Initialize Firebase
-let app;
-if (!getApps().length) {
-  app = initializeApp(firebaseConfig);
-} else {
-  app = getApp();
-}
-
+const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-export type UserRole = 'employee' | 'manager' | 'finance' | 'admin';
-
-export interface UserData {
-  uid: string;
-  email: string;
-  role: UserRole;
-  displayName?: string;
-  createdAt: number;
-}
-
 const createUserDocument = async (user: User, role: UserRole = 'employee'): Promise<UserData> => {
   try {
-    console.log('Creating/updating user document:', user.uid);
-    
-    // Create a base document with only the essential fields
     const docData = {
       email: user.email || '',
-      role: role,
-      createdAt: serverTimestamp()
+      role,
+      createdAt: serverTimestamp(),
+      ...(user.displayName && { displayName: user.displayName })
     };
 
-    // Only add displayName if it exists
-    if (user.displayName) {
-      Object.assign(docData, { displayName: user.displayName });
-    }
-
-    // Write to Firestore
     await setDoc(doc(db, 'users', user.uid), docData);
-    console.log('User document created/updated successfully');
 
-    // Return the user data in the expected format
     return {
       uid: user.uid,
       email: user.email || '',
-      role: role,
+      role,
       displayName: user.displayName || undefined,
-      createdAt: Date.now() // Use current timestamp for immediate return
+      createdAt: Date.now()
     };
   } catch (error) {
-    console.error('Error creating/updating user document:', error);
+    console.error('Error creating user document:', error);
     throw new Error('Failed to create user document');
   }
 };
 
-export const createUserWithRole = async (email: string, password: string): Promise<UserData> => {
-  try {
-    console.log('Creating user with email:', email);
-    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-    console.log('User created successfully:', userCredential.user.uid);
-    
-    const userData = await createUserDocument(userCredential.user);
-    setSessionCookie(userData);
-    return userData;
-  } catch (error: any) {
-    console.error('Create user error:', error);
-    if (error.code) {
-      switch (error.code) {
-        case 'auth/email-already-in-use':
-          throw new Error('Email already registered. Please sign in instead.');
-        case 'auth/invalid-email':
-          throw new Error('Invalid email address.');
-        case 'auth/operation-not-allowed':
-          throw new Error('Email/password accounts are not enabled. Please contact support.');
-        case 'auth/weak-password':
-          throw new Error('Password is too weak. Please use a stronger password.');
-        default:
-          throw new Error(error.message || 'Failed to create account');
-      }
-    }
-    throw error;
-  }
+const createJWT = async (userData: UserData) => {
+  const secret = new TextEncoder().encode(process.env.NEXT_PUBLIC_JWT_SECRET);
+  const token = await new SignJWT({ 
+    uid: userData.uid,
+    email: userData.email,
+    role: userData.role,
+    displayName: userData.displayName
+  })
+    .setProtectedHeader({ alg: 'HS256' })
+    .setIssuedAt()
+    .setExpirationTime('7d')
+    .sign(secret);
+  return token;
 };
 
-export const updateUserRole = async (uid: string, newRole: UserRole): Promise<UserData> => {
+const authErrorMessages: Record<string, string> = {
+  'auth/email-already-in-use': 'Email already registered. Please sign in instead.',
+  'auth/invalid-email': 'Invalid email address.',
+  'auth/operation-not-allowed': 'Email/password accounts are not enabled. Please contact support.',
+  'auth/weak-password': 'Password is too weak. Please use a stronger password.',
+  'auth/user-disabled': 'This account has been disabled. Please contact support.',
+  'auth/user-not-found': 'No account found with this email.',
+  'auth/wrong-password': 'Incorrect password.',
+};
+
+export const createUserWithRole = async (email: string, password: string): Promise<UserData> => {
   try {
-    console.log(`Updating role for user ${uid} to ${newRole}`);
-    
-    // Verify the role is valid
-    if (!['employee', 'finance', 'manager'].includes(newRole)) {
-      throw new Error('Invalid role specified');
-    }
-
-    // Get current user data
-    const currentData = await getUserData(uid);
-    if (!currentData) {
-      throw new Error('User not found');
-    }
-
-    // Update the role in Firestore
-    await setDoc(doc(db, 'users', uid), {
-      ...currentData,
-      role: newRole,
-      updatedAt: serverTimestamp()
-    }, { merge: true });
-
-    // Get and return the updated user data
-    const updatedData = await getUserData(uid);
-    if (!updatedData) {
-      throw new Error('Failed to retrieve updated user data');
-    }
-
-    return updatedData;
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    const userData = await createUserDocument(userCredential.user);
+    const token = await createJWT(userData);
+    setSessionCookie(token);
+    return userData;
   } catch (error) {
-    console.error('Error updating user role:', error);
-    throw new Error('Failed to update user role');
+    const authError = error as AuthError;
+    throw new Error(authErrorMessages[authError.code] || authError.message || 'Failed to create account');
   }
 };
 
 export const signIn = async (email: string, password: string) => {
   try {
-    console.log('Signing in user:', email);
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
-    console.log('User signed in successfully:', userCredential.user.uid);
-    
-    // Get or create user data
     let userData = await getUserData(userCredential.user.uid);
+    
     if (!userData) {
-      console.log('Creating user data for existing auth user');
       userData = await createUserDocument(userCredential.user);
     }
     
-    setSessionCookie(userData);
-    return { userCredential, userData };
-  } catch (error: any) {
-    console.error('Sign in error:', error);
-    if (error.code) {
-      switch (error.code) {
-        case 'auth/invalid-email':
-          throw new Error('Invalid email address.');
-        case 'auth/user-disabled':
-          throw new Error('This account has been disabled. Please contact support.');
-        case 'auth/user-not-found':
-          throw new Error('No account found with this email.');
-        case 'auth/wrong-password':
-          throw new Error('Incorrect password.');
-        default:
-          throw new Error(error.message || 'Failed to sign in');
-      }
-    }
-    throw error;
+    const token = await createJWT(userData);
+    setSessionCookie(token);
+    return { userData };
+  } catch (error) {
+    const authError = error as AuthError;
+    throw new Error(authErrorMessages[authError.code] || authError.message || 'Failed to sign in');
   }
 };
 
@@ -164,68 +111,28 @@ export const signOutUser = async () => {
   try {
     await signOut(auth);
     removeSessionCookie();
-  } catch (error: any) {
+  } catch (error) {
     console.error('Sign out error:', error);
     throw error;
   }
 };
 
-export const getCurrentUser = (): Promise<User | null> => {
-  return new Promise((resolve, reject) => {
-    const unsubscribe = onAuthStateChanged(
-      auth,
-      (user) => {
-        unsubscribe();
-        resolve(user);
-      },
-      reject
-    );
-  });
-};
-
 export const getUserData = async (uid: string): Promise<UserData | null> => {
   try {
-    console.log('Fetching user data for:', uid);
     const userDoc = await getDoc(doc(db, 'users', uid));
-    if (!userDoc.exists()) {
-      console.log('No user document found for:', uid);
-      return null;
-    }
+    if (!userDoc.exists()) return null;
     
     const data = userDoc.data();
-    const userData: UserData = {
+    return {
       uid: userDoc.id,
       email: data.email || '',
-      role: data.role as UserRole,
-      displayName: data.displayName || undefined,
+      role: data.role,
+      displayName: data.displayName,
       createdAt: data.createdAt?.toMillis() || Date.now()
     };
-    
-    console.log('User data retrieved:', userData);
-    return userData;
-  } catch (error: any) {
+  } catch (error) {
     console.error('Get user data error:', error);
     throw error;
-  }
-};
-
-export const getUserRole = async (uid: string): Promise<UserRole> => {
-  try {
-    const userData = await getUserData(uid);
-    if (!userData) {
-      console.log('No user data found, creating with default role');
-      const authUser = auth.currentUser;
-      if (!authUser) {
-        console.log('No authenticated user found, defaulting to employee role');
-        return 'employee';
-      }
-      const newUserData = await createUserDocument(authUser);
-      return newUserData.role;
-    }
-    return userData.role;
-  } catch (error) {
-    console.error('Error getting user role:', error);
-    return 'employee'; // Default to employee role if there's an error
   }
 };
 

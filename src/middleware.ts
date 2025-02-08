@@ -1,62 +1,73 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { UserRole } from '@/lib/types';
+import { jwtVerify } from 'jose';
 
 // Paths that don't require authentication
 const publicPaths = ['/', '/login', '/signup', '/forgot-password'];
 
-// Role-based path prefixes
-const rolePathMap = {
-  employee: '/employee',
-  manager: '/manager',
-  finance: '/finance',
-  admin: '/admin',
+// Common authenticated paths that all roles can access
+const commonAuthPaths = ['/profile'];
+
+const roleBasedPaths = {
+  finance: [
+    '/finance/dashboard',
+    '/finance/review-expenses',
+    '/finance/fraud-detection',
+    '/finance/compliance',
+    '/finance/analytics',
+  ],
+  employee: [
+    '/employee/dashboard',
+    '/employee/expenses',
+    '/employee/submit',
+  ],
 };
 
 export async function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
+  const pathname = request.nextUrl.pathname;
 
-  // Allow public paths
-  if (publicPaths.includes(pathname)) {
+  // Check if the path is protected
+  const isProtectedPath = pathname.startsWith('/finance/') || 
+                         pathname.startsWith('/employee/') || 
+                         commonAuthPaths.includes(pathname);
+
+  if (!isProtectedPath) {
     return NextResponse.next();
   }
 
-  // Check for auth session
-  const session = request.cookies.get('session');
-
-  if (!session) {
-    // Redirect to login if no session exists
-    return NextResponse.redirect(new URL('/login', request.url));
-  }
-
-  // Get user role from session (you'll need to implement this based on your session structure)
-  // This is a placeholder - implement actual role extraction from your session
-  const userRole = session.value ? JSON.parse(session.value).role : null;
-
-  if (!userRole) {
-    return NextResponse.redirect(new URL('/login', request.url));
-  }
-
-  // Check if user is accessing their allowed paths
-  const isAccessingAllowedPath = pathname.startsWith(rolePathMap[userRole as keyof typeof rolePathMap]);
+  const session = request.cookies.get('session')?.value;
   
-  if (!isAccessingAllowedPath) {
-    // Redirect to their default dashboard if trying to access unauthorized area
-    return NextResponse.redirect(new URL(`${rolePathMap[userRole as keyof typeof rolePathMap]}/dashboard`, request.url));
+  if (!session) {
+    return NextResponse.redirect(new URL('/login', request.url));
   }
 
-  return NextResponse.next();
+  try {
+    const secret = new TextEncoder().encode(process.env.JWT_SECRET);
+    const { payload } = await jwtVerify(session, secret);
+    const userRole = payload.role as UserRole;
+
+    // Allow access to common auth paths for all authenticated users
+    if (commonAuthPaths.includes(pathname)) {
+      return NextResponse.next();
+    }
+
+    // Check role-based access
+    const allowedPaths = roleBasedPaths[userRole as keyof typeof roleBasedPaths] || [];
+    if (!allowedPaths.some(path => pathname.startsWith(path))) {
+      return NextResponse.redirect(new URL('/unauthorized', request.url));
+    }
+
+    return NextResponse.next();
+  } catch (error) {
+    return NextResponse.redirect(new URL('/login', request.url));
+  }
 }
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except:
-     * 1. /api/ routes
-     * 2. /_next/ (Next.js internals)
-     * 3. /_static (inside /public)
-     * 4. /_vercel (Vercel internals)
-     * 5. all root files inside /public (e.g. /favicon.ico)
-     */
-    '/((?!api|_next|_static|_vercel|[\\w-]+\\.\\w+).*)',
+    '/finance/:path*',
+    '/employee/:path*',
+    '/profile',
   ],
 }; 

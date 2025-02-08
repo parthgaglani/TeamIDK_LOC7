@@ -1,14 +1,8 @@
 import Cookies from 'js-cookie';
-import { UserData } from './firebase';
 
-export const setSessionCookie = (userData: UserData) => {
-  // Set session cookie with user data
-  Cookies.set('session', JSON.stringify({
-    uid: userData.uid,
-    email: userData.email,
-    role: userData.role,
-    displayName: userData.displayName
-  }), {
+export const setSessionCookie = (token: string) => {
+  // Set session cookie with JWT token
+  Cookies.set('session', token, {
     expires: 7, // Cookie expires in 7 days
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'strict'
@@ -16,14 +10,7 @@ export const setSessionCookie = (userData: UserData) => {
 };
 
 export const getSessionCookie = () => {
-  const session = Cookies.get('session');
-  if (!session) return null;
-  
-  try {
-    return JSON.parse(session);
-  } catch {
-    return null;
-  }
+  return Cookies.get('session');
 };
 
 export const removeSessionCookie = () => {

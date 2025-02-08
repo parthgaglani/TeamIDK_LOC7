@@ -2,8 +2,7 @@
 
 import { createContext, useContext, useEffect, useState } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
-import { auth } from './firebase';
-import { getUserData } from './firebase';
+import { auth, getUserData } from './firebase';
 import type { UserData } from './types';
 
 interface AuthContextType {
@@ -46,6 +45,4 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function useAuth() {
-  return useContext(AuthContext);
-} 
+export const useAuth = () => useContext(AuthContext); 
