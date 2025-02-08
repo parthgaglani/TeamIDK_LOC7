@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useAuth } from '@/lib/AuthContext';
+import { signOutUser } from '@/lib/firebase';
 import {
   BsSpeedometer2,
   BsReceipt,
@@ -40,37 +42,24 @@ const roleBasedNavItems = {
     { name: 'Approvals', href: '/manager/approvals', icon: BsCheckCircle },
     { name: 'Analytics', href: '/manager/analytics', icon: BsGraphUp },
   ],
-  admin: [
-    { name: 'Dashboard', href: '/admin/dashboard', icon: BsSpeedometer2 },
-    { name: 'Users', href: '/admin/users', icon: BsPeople },
-    { name: 'Policies', href: '/admin/policies', icon: BsShield },
-    { name: 'Settings', href: '/admin/settings', icon: BsSliders },
-  ],
-};
-
-const publicNavItems = [
-  { name: 'Features', href: '/#features' },
-  { name: 'Pricing', href: '/pricing' },
-  { name: 'About', href: '/about' },
-];
+} as const;
 
 const Navigation = ({ children }: { children: React.ReactNode }) => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const pathname = usePathname();
+  const { userData, loading } = useAuth();
 
-  // This should be replaced with your actual auth logic
-  const getUserRole = (): keyof typeof roleBasedNavItems | null => {
-    if (pathname.startsWith('/admin')) return 'admin';
-    if (pathname.startsWith('/finance')) return 'finance';
-    if (pathname.startsWith('/manager')) return 'manager';
-    if (pathname.startsWith('/employee')) return 'employee';
-    return null;
+  const handleSignOut = async () => {
+    try {
+      await signOutUser();
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
   };
 
-  const userRole = getUserRole();
-  const isAuthenticated = userRole !== null;
-  const navigationItems = userRole ? roleBasedNavItems[userRole] : [];
+  const navigationItems = userData?.role ? roleBasedNavItems[userData.role] : [];
+  const isAuthenticated = !!userData;
 
   useEffect(() => {
     const handleScroll = () => {
@@ -95,21 +84,21 @@ const Navigation = ({ children }: { children: React.ReactNode }) => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
-            <Link href={isAuthenticated ? `/${userRole}/dashboard` : '/'} className="flex items-center space-x-2">
+            <Link href={isAuthenticated ? `/${userData.role}/dashboard` : '/'} className="flex items-center space-x-2">
               <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
                 ExpenseAI
               </span>
-              {userRole && (
+              {userData?.role && (
                 <span className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded-full capitalize">
-                  {userRole}
+                  {userData.role}
                 </span>
               )}
             </Link>
 
-            {/* Navigation Links */}
-            <div className="hidden md:flex items-center space-x-1">
-              {isAuthenticated ? (
-                navigationItems.map((item) => {
+            {/* Navigation Links - Only show when authenticated */}
+            {isAuthenticated && (
+              <div className="hidden md:flex items-center space-x-1">
+                {navigationItems.map((item) => {
                   const isActive = pathname === item.href;
                   return (
                     <Link
@@ -125,23 +114,15 @@ const Navigation = ({ children }: { children: React.ReactNode }) => {
                       {item.name}
                     </Link>
                   );
-                })
-              ) : (
-                publicNavItems.map((item) => (
-                  <Link
-                    key={item.name}
-                    href={item.href}
-                    className="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors"
-                  >
-                    {item.name}
-                  </Link>
-                ))
-              )}
-            </div>
+                })}
+              </div>
+            )}
 
             {/* Right Section */}
             <div className="flex items-center space-x-4">
-              {isAuthenticated ? (
+              {loading ? (
+                <div className="h-8 w-8 animate-pulse rounded-full bg-gray-200" />
+              ) : isAuthenticated ? (
                 <>
                   {/* Notifications */}
                   <button className="p-2 rounded-lg hover:bg-gray-100 transition-colors relative">
@@ -156,7 +137,9 @@ const Navigation = ({ children }: { children: React.ReactNode }) => {
                       className="flex items-center space-x-2 p-2 rounded-lg hover:bg-gray-100 transition-colors"
                     >
                       <div className="w-8 h-8 rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 flex items-center justify-center">
-                        <span className="text-white text-sm font-medium">JD</span>
+                        <span className="text-white text-sm font-medium">
+                          {userData.email.charAt(0).toUpperCase()}
+                        </span>
                       </div>
                       <BsChevronDown className={`text-gray-500 transition-transform ${isProfileOpen ? 'rotate-180' : ''}`} />
                     </button>
@@ -170,25 +153,29 @@ const Navigation = ({ children }: { children: React.ReactNode }) => {
                           className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1"
                         >
                           <div className="px-4 py-2 border-b border-gray-100">
-                            <p className="text-sm font-medium text-gray-900">John Doe</p>
-                            <p className="text-xs text-gray-500 capitalize">{userRole} Account</p>
+                            <p className="text-sm font-medium text-gray-900 truncate">
+                              {userData.email}
+                            </p>
+                            <p className="text-xs text-gray-500 capitalize">
+                              {userData.role} Account
+                            </p>
                           </div>
                           <Link
-                            href={`/${userRole}/profile`}
+                            href={`/${userData.role}/profile`}
                             className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
                           >
                             <BsPerson className="mr-2" />
                             Profile
                           </Link>
                           <Link
-                            href={`/${userRole}/settings`}
+                            href={`/${userData.role}/settings`}
                             className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
                           >
                             <BsGear className="mr-2" />
                             Settings
                           </Link>
                           <button
-                            onClick={() => {/* Handle logout */}}
+                            onClick={handleSignOut}
                             className="w-full flex items-center px-4 py-2 text-sm text-red-600 hover:bg-gray-50"
                           >
                             Sign out

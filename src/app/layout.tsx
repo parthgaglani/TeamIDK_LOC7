@@ -1,13 +1,14 @@
-import type { Metadata } from "next";
-import { Inter } from "next/font/google";
-import "./globals.css";
-import Navigation from "@/components/Navigation";
+import type { Metadata } from 'next';
+import { Inter } from 'next/font/google';
+import './globals.css';
+import { AuthProvider } from '@/lib/AuthContext';
+import Navigation from '@/components/Navigation';
 
-const inter = Inter({ subsets: ["latin"] });
+const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: "ExpenseAI - Smart Expense Management",
-  description: "AI-powered expense report generator with fraud detection",
+  title: 'ExpenseAI',
+  description: 'AI-powered expense management',
 };
 
 export default function RootLayout({
@@ -18,8 +19,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        <Navigation>{children}</Navigation>
+        <AuthProvider>
+          <Navigation>{children}</Navigation>
+        </AuthProvider>
       </body>
     </html>
   );
-}
+} 
