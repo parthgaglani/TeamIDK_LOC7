@@ -23,6 +23,12 @@
   --input: 214.3 31.8% 91.4%;
   --ring: 221.2 83.2% 53.3%;
   --radius: 0.75rem;
+  --neon-primary: #ff00ff;
+  --neon-secondary: #00ffff;
+  --neon-accent: #ff0099;
+  --dark-bg: #0a0a1f;
+  --darker-bg: #050510;
+  --grid-color: rgba(255, 0, 255, 0.1);
 }
 
 @layer base {
@@ -31,6 +37,14 @@
   }
   body {
     @apply bg-background text-foreground;
+    background: var(--dark-bg);
+    color: white;
+    font-family: 'Press Start 2P', system-ui, sans-serif;
+    background-image: 
+      linear-gradient(var(--grid-color) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
+    background-size: 50px 50px;
+    animation: gridMove 20s linear infinite;
   }
 }
 
@@ -61,4 +75,157 @@
 
 .hover-scale:hover {
   transform: scale(1.02);
+}
+
+@keyframes wave {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+@keyframes glow {
+  0%, 100% {
+    text-shadow: 0 0 5px var(--neon-primary),
+                 0 0 10px var(--neon-primary),
+                 0 0 15px var(--neon-primary);
+  }
+  50% {
+    text-shadow: 0 0 10px var(--neon-primary),
+                 0 0 20px var(--neon-primary),
+                 0 0 30px var(--neon-primary);
+  }
+}
+
+@keyframes gridMove {
+  0% {
+    background-position: 0 0;
+  }
+  100% {
+    background-position: 50px 50px;
+  }
+}
+
+.retro-container {
+  background: var(--darker-bg);
+  border: 2px solid var(--neon-primary);
+  box-shadow: 0 0 10px var(--neon-primary),
+              inset 0 0 10px var(--neon-primary);
+  border-radius: 8px;
+  padding: 20px;
+  margin: 20px;
+}
+
+.neon-text {
+  color: var(--neon-primary);
+  animation: glow 2s ease-in-out infinite;
+  font-weight: bold;
+}
+
+.neon-button {
+  background: transparent;
+  border: 2px solid var(--neon-secondary);
+  color: var(--neon-secondary);
+  padding: 10px 20px;
+  border-radius: 4px;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+  font-size: 0.9em;
+  letter-spacing: 2px;
+  position: relative;
+  overflow: hidden;
+}
+
+.neon-button:hover {
+  background: var(--neon-secondary);
+  color: var(--darker-bg);
+  box-shadow: 0 0 20px var(--neon-secondary);
+}
+
+.neon-button:before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+  transition: 0.5s;
+}
+
+.neon-button:hover:before {
+  left: 100%;
+}
+
+.wave-hover {
+  transition: transform 0.3s ease;
+}
+
+.wave-hover:hover {
+  animation: wave 1s ease-in-out infinite;
+}
+
+.neon-input {
+  background: rgba(255, 255, 255, 0.1);
+  border: 2px solid var(--neon-secondary);
+  color: white;
+  padding: 10px;
+  border-radius: 4px;
+  outline: none;
+  transition: all 0.3s ease;
+}
+
+.neon-input:focus {
+  box-shadow: 0 0 10px var(--neon-secondary);
+}
+
+.neon-card {
+  background: rgba(10, 10, 31, 0.8);
+  border: 2px solid var(--neon-primary);
+  border-radius: 8px;
+  padding: 20px;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.neon-card:hover {
+  box-shadow: 0 0 20px var(--neon-primary);
+  transform: translateY(-5px);
+}
+
+.neon-card:before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg, var(--neon-primary), var(--neon-secondary));
+  animation: wave 2s linear infinite;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--darker-bg);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--neon-primary);
+  border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--neon-secondary);
 }

@@ -1,263 +1,247 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/AuthContext';
-import { signOutUser } from '@/lib/firebase';
+import { motion } from 'framer-motion';
 import {
-  BsSpeedometer2,
-  BsReceipt,
-  BsShieldCheck,
-  BsCheckCircle,
-  BsGear,
-  BsPerson,
-  BsBell,
-  BsChevronDown,
+  BsHouseFill,
+  BsFileEarmarkTextFill,
   BsClockHistory,
-  BsChatDots,
-  BsGraphUp,
-  BsPeople,
-  BsShield,
-  BsSliders,
-  BsGrid,
-  BsClipboardCheck,
-  BsShieldExclamation,
-  BsPlus,
+  BsRobot,
+  BsBoxArrowRight,
+  BsPersonFill,
+  BsLock,
+  BsPersonPlus,
 } from 'react-icons/bs';
-import { IconType } from 'react-icons';
-import { UserRole } from '@/lib/types';
 
-interface NavItem {
-  href: string;
-  label: string;
-  icon: IconType;
-}
-
-// Navigation items for different user roles
-const financeLinks: NavItem[] = [
-  { href: '/finance/dashboard', label: 'Dashboard', icon: BsGrid },
-  { href: '/finance/review-expenses', label: 'Review & Approve', icon: BsClipboardCheck },
-  { href: '/finance/fraud-detection', label: 'Fraud Detection', icon: BsShieldExclamation },
-  { href: '/finance/compliance', label: 'Compliance', icon: BsShieldCheck },
-  { href: '/finance/analytics', label: 'Analytics', icon: BsGraphUp },
-];
-
-const employeeLinks: NavItem[] = [
-  { href: '/employee/dashboard', label: 'Dashboard', icon: BsSpeedometer2 },
-  { href: '/employee/expense-history', label: 'Expense History', icon: BsClockHistory },
-  { href: '/employee/submit-expense', label: 'Submit Expense', icon: BsReceipt },
-  { href: '/employee/ai-assistant', label: 'AI Assistant', icon: BsChatDots },
-];
-
-const roleLinks: Record<UserRole, NavItem[]> = {
-  finance: financeLinks,
-  employee: employeeLinks,
-};
-
-const Navigation = ({ children }: { children: React.ReactNode }) => {
-  const [mounted, setMounted] = useState(false);
-  const [isScrolled, setIsScrolled] = useState(false);
-  const [isProfileOpen, setIsProfileOpen] = useState(false);
-  const pathname = usePathname();
-  const { userData, loading } = useAuth();
+export default function Navigation({ children }: { children: React.ReactNode }) {
+  const { userData, signOut } = useAuth();
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const router = useRouter();
-
-  useEffect(() => {
-    setMounted(true);
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 10);
-    };
-
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
 
   const handleSignOut = async () => {
     try {
-      await signOutUser();
+      await signOut();
       router.push('/');
     } catch (error) {
       console.error('Error signing out:', error);
     }
   };
 
-  const navigationItems = userData?.role ? roleLinks[userData.role] : [];
-  const isAuthenticated = !!userData;
-
-  // Prevent hydration mismatch by not rendering until mounted
-  if (!mounted) {
-    return null;
-  }
+  const menuItems = [
+    {
+      href: '/employee/dashboard',
+      icon: <BsHouseFill className="w-5 h-5" />,
+      text: 'Dashboard',
+    },
+    {
+      href: '/employee/submit-expense',
+      icon: <BsFileEarmarkTextFill className="w-5 h-5" />,
+      text: 'Submit Expense',
+    },
+    {
+      href: '/employee/expense-history',
+      icon: <BsClockHistory className="w-5 h-5" />,
+      text: 'History',
+    },
+    {
+      href: '/employee/ai-assistant',
+      icon: <BsRobot className="w-5 h-5" />,
+      text: 'AI Assistant',
+    },
+  ];
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Navbar */}
+    <div className="flex h-screen">
+      {/* Sidebar */}
       <motion.nav
-        initial={false}
-        animate={{
-          backgroundColor: isScrolled ? 'rgba(255, 255, 255, 0.9)' : 'rgba(255, 255, 255, 0.5)',
-          backdropFilter: isScrolled ? 'blur(10px)' : 'blur(5px)',
-        }}
-        className="fixed top-0 left-0 right-0 z-50 border-b border-gray-200 transition-all duration-200"
+        initial={{ x: -300 }}
+        animate={{ x: 0 }}
+        className="w-64 bg-darker-bg border-r-2 border-neon-primary"
       >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            {/* Logo */}
-            <Link href={isAuthenticated ? `/${userData.role}/dashboard` : '/'} className="flex items-center space-x-2">
-              <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                ExpenseAI
-              </span>
-              {userData?.role && (
-                <span className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded-full capitalize">
-                  {userData.role}
-                </span>
-              )}
-            </Link>
+        <div className="p-4">
+          <motion.div
+            className="text-2xl font-bold neon-text text-center mb-8 wave-hover"
+            whileHover={{ scale: 1.05 }}
+          >
+            ExpenseAI
+          </motion.div>
 
-            {/* Navigation Links - Only show when authenticated */}
-            {isAuthenticated && (
-              <div className="hidden md:flex items-center space-x-1">
-                {navigationItems.map((item) => {
-                  const isActive = pathname === item.href;
-                  return (
-                    <Link
-                      key={item.label}
-                      href={item.href}
-                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center ${
-                        isActive
-                          ? 'text-blue-600 bg-blue-50'
-                          : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                      }`}
-                    >
-                      <item.icon className="mr-2 text-lg" />
-                      {item.label}
-                    </Link>
-                  );
-                })}
+          {userData ? (
+            // Show menu items for authenticated users
+            <div className="space-y-2">
+              {menuItems.map((item) => (
+                <Link key={item.href} href={item.href}>
+                  <motion.div
+                    className="flex items-center p-3 rounded-lg neon-button wave-hover"
+                    whileHover={{ x: 5 }}
+                  >
+                    {item.icon}
+                    <span className="ml-3">{item.text}</span>
+                  </motion.div>
+                </Link>
+              ))}
+              <motion.div
+                className="flex items-center p-3 rounded-lg neon-button wave-hover text-neon-primary border-neon-primary mt-4"
+                whileHover={{ x: 5 }}
+                onClick={handleSignOut}
+                style={{ cursor: 'pointer' }}
+              >
+                <BsBoxArrowRight className="w-5 h-5" />
+                <span className="ml-3">Sign Out</span>
+              </motion.div>
+            </div>
+          ) : (
+            // Show auth buttons for non-authenticated users
+            <div className="space-y-4">
+              <Link href="/login">
+                <motion.div
+                  className="flex items-center p-3 rounded-lg neon-button wave-hover"
+                  whileHover={{ x: 5 }}
+                >
+                  <BsLock className="w-5 h-5" />
+                  <span className="ml-3">Sign In</span>
+                </motion.div>
+              </Link>
+              <Link href="/signup">
+                <motion.div
+                  className="flex items-center p-3 rounded-lg neon-button wave-hover"
+                  whileHover={{ x: 5 }}
+                >
+                  <BsPersonPlus className="w-5 h-5" />
+                  <span className="ml-3">Sign Up</span>
+                </motion.div>
+              </Link>
+            </div>
+          )}
+        </div>
+
+        {userData && (
+          <div className="absolute bottom-0 w-full p-4 border-t-2 border-neon-primary">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <BsPersonFill className="w-5 h-5 text-neon-secondary" />
+                <span className="ml-2 text-sm truncate">{userData.email}</span>
               </div>
-            )}
-
-            {/* Right Section */}
-            <div className="flex items-center space-x-4">
-              {loading ? (
-                <div className="h-8 w-8 animate-pulse rounded-full bg-gray-200" />
-              ) : isAuthenticated ? (
-                <>
-                  {/* Notifications */}
-                  <button className="p-2 rounded-lg hover:bg-gray-100 transition-colors relative">
-                    <BsBell className="text-gray-500 w-5 h-5" />
-                    <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-                  </button>
-
-                  {/* Profile Dropdown */}
-                  <div className="relative">
-                    <button
-                      onClick={() => setIsProfileOpen(!isProfileOpen)}
-                      className="flex items-center space-x-2 p-2 rounded-lg hover:bg-gray-100 transition-colors"
-                    >
-                      <div className="w-8 h-8 rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 flex items-center justify-center">
-                        <span className="text-white text-sm font-medium">
-                          {userData.email.charAt(0).toUpperCase()}
-                        </span>
-                      </div>
-                      <BsChevronDown className={`text-gray-500 transition-transform ${isProfileOpen ? 'rotate-180' : ''}`} />
-                    </button>
-
-                    <AnimatePresence>
-                      {isProfileOpen && (
-                        <motion.div
-                          initial={{ opacity: 0, y: 10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: 10 }}
-                          className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1"
-                        >
-                          <div className="px-4 py-2 border-b border-gray-100">
-                            <p className="text-sm font-medium text-gray-900 truncate">
-                              {userData.email}
-                            </p>
-                            <p className="text-xs text-gray-500 capitalize">
-                              {userData.role} Account
-                            </p>
-                          </div>
-                          <Link
-                            href="/profile"
-                            className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                          >
-                            <BsPerson className="mr-2" />
-                            Profile
-                          </Link>
-                          <Link
-                            href={`/${userData.role}/settings`}
-                            className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                          >
-                            <BsGear className="mr-2" />
-                            Settings
-                          </Link>
-                          <button
-                            onClick={handleSignOut}
-                            className="w-full flex items-center px-4 py-2 text-sm text-red-600 hover:bg-gray-50"
-                          >
-                            Sign out
-                          </button>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
-                </>
-              ) : (
-                <div className="flex items-center space-x-4">
-                  <Link
-                    href="/login"
-                    className="text-gray-600 hover:text-gray-900 text-sm font-medium"
-                  >
-                    Sign in
-                  </Link>
-                  <Link
-                    href="/signup"
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
-                  >
-                    Get Started
-                  </Link>
-                </div>
-              )}
+              <motion.button
+                whileHover={{ scale: 1.1 }}
+                onClick={handleSignOut}
+                className="p-2 rounded-full hover:bg-neon-primary/20"
+              >
+                <BsBoxArrowRight className="w-5 h-5 text-neon-primary" />
+              </motion.button>
             </div>
           </div>
-        </div>
+        )}
       </motion.nav>
 
-      {/* Mobile Menu */}
-      {isAuthenticated && (
-        <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50">
-          <div className="grid grid-cols-4 gap-1 p-2">
-            {navigationItems.map((item) => {
-              const isActive = pathname === item.href;
-              return (
-                <Link
-                  key={item.label}
-                  href={item.href}
-                  className={`flex flex-col items-center py-2 rounded-lg text-xs transition-colors ${
-                    isActive
-                      ? 'text-blue-600'
-                      : 'text-gray-600 hover:text-gray-900'
-                  }`}
-                >
-                  <item.icon className="text-lg mb-1" />
-                  {item.label}
-                </Link>
-              );
-            })}
-          </div>
-        </div>
-      )}
+      {/* Mobile menu button */}
+      <div className="lg:hidden fixed top-4 right-4 z-50">
+        <motion.button
+          whileTap={{ scale: 0.95 }}
+          onClick={() => setIsMenuOpen(!isMenuOpen)}
+          className="neon-button p-2"
+        >
+          <svg
+            className="w-6 h-6"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            {isMenuOpen ? (
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
+            ) : (
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 6h16M4 12h16M4 18h16"
+              />
+            )}
+          </svg>
+        </motion.button>
+      </div>
 
-      {/* Main Content */}
-      <div className={`pt-16 ${isAuthenticated ? 'pb-16 md:pb-0' : 'pb-0'}`}>
-        <main>{children}</main>
+      {/* Mobile menu */}
+      <motion.div
+        initial={false}
+        animate={{ x: isMenuOpen ? 0 : '100%' }}
+        className="lg:hidden fixed inset-y-0 right-0 w-64 bg-darker-bg border-l-2 border-neon-primary z-40"
+      >
+        <div className="p-4">
+          {userData ? (
+            <div className="space-y-2">
+              {menuItems.map((item) => (
+                <Link key={item.href} href={item.href}>
+                  <motion.div
+                    className="flex items-center p-3 rounded-lg neon-button wave-hover"
+                    whileHover={{ x: 5 }}
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    {item.icon}
+                    <span className="ml-3">{item.text}</span>
+                  </motion.div>
+                </Link>
+              ))}
+              <motion.div
+                className="flex items-center p-3 rounded-lg neon-button wave-hover text-neon-primary border-neon-primary mt-4"
+                whileHover={{ x: 5 }}
+                onClick={() => {
+                  handleSignOut();
+                  setIsMenuOpen(false);
+                }}
+                style={{ cursor: 'pointer' }}
+              >
+                <BsBoxArrowRight className="w-5 h-5" />
+                <span className="ml-3">Sign Out</span>
+              </motion.div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <Link href="/login">
+                <motion.div
+                  className="flex items-center p-3 rounded-lg neon-button wave-hover"
+                  whileHover={{ x: 5 }}
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  <BsLock className="w-5 h-5" />
+                  <span className="ml-3">Sign In</span>
+                </motion.div>
+              </Link>
+              <Link href="/signup">
+                <motion.div
+                  className="flex items-center p-3 rounded-lg neon-button wave-hover"
+                  whileHover={{ x: 5 }}
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  <BsPersonPlus className="w-5 h-5" />
+                  <span className="ml-3">Sign Up</span>
+                </motion.div>
+              </Link>
+            </div>
+          )}
+        </div>
+      </motion.div>
+
+      {/* Main content */}
+      <div className="flex-1 overflow-auto">
+        <div className="container mx-auto p-4">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+          >
+            {children}
+          </motion.div>
+        </div>
       </div>
     </div>
   );
-};
-
-export default Navigation; 
+} 
