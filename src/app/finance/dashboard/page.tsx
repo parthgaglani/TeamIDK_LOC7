@@ -20,7 +20,7 @@ import {
   BsDownload,
   BsCalendar,
 } from 'react-icons/bs';
-import { Dropdown } from '@/components/ui/Dropdown';
+import { Dropdown } from '@/app/components/ui/Dropdown';
 
 // Sample data for demonstration
 const pendingReports = [

@@ -25,7 +25,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
-import { Dropdown } from '@/components/ui/Dropdown';
+import { Dropdown } from '@/app/components/ui/Dropdown';
 
 // Sample data for spending trends
 const spendingTrends = [

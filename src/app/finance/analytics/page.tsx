@@ -16,7 +16,7 @@ import {
   BsTag,
   BsCurrencyDollar,
 } from 'react-icons/bs';
-import { Dropdown } from '@/components/ui/Dropdown';
+import { Dropdown } from '@/app/components/ui/Dropdown';
 
 interface SpendingTrend {
   id: string;

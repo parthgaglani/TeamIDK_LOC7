@@ -1,182 +1,210 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { motion } from 'framer-motion';
+import { useAuth } from '@/lib/AuthContext';
+import { processReceipt, ProcessedReceipt } from '@/lib/ocr';
+import { generatePDFReport, ExpenseReport } from '@/lib/pdf';
 import { useDropzone } from 'react-dropzone';
 import {
   BsUpload,
-  BsImage,
-  BsTrash,
-  BsCheckCircle,
-  BsExclamationTriangle,
-  BsArrowRight,
-  BsRobot,
   BsReceipt,
-  BsLightning,
-  BsCheck2Circle,
-  BsExclamationCircle,
+  BsTrash,
+  BsRobot,
   BsCalendar,
+  BsExclamationCircle,
+  BsCheck2Circle,
 } from 'react-icons/bs';
-import { processReceipt, ExtractedReceipt } from '@/lib/ocr';
-
-interface FormData extends ExtractedReceipt {
-  description: string;
-  projectCode?: string;
-}
 
 export default function SubmitExpensePage() {
-  const [files, setFiles] = useState<File[]>([]);
-  const [processing, setProcessing] = useState(false);
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [currentForm, setCurrentForm] = useState<FormData>({
-    vendor: '',
-    amount: 0,
-    date: new Date().toISOString().split('T')[0],
-    category: '',
-    fullText: '',
-    description: '',
-  });
+  const { userData } = useAuth();
+  const [file, setFile] = useState<File | null>(null);
+  const [amount, setAmount] = useState<string>('');
+  const [category, setCategory] = useState<string>('');
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [processedData, setProcessedData] = useState<ProcessedReceipt | null>(null);
+  const [pdfData, setPdfData] = useState<{ blob: Blob; reportId: string } | null>(null);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [description, setDescription] = useState('');
+  const [projectCode, setProjectCode] = useState('');
+  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
 
   const formatDisplayDate = (dateString: string) => {
     try {
+      // If the date is already in DD-MM-YY format, return it as is
+      if (/^\d{2}-\d{2}-\d{2}$/.test(dateString)) {
+        return dateString;
+      }
+
+      // Otherwise, parse and format the date
       const date = new Date(dateString);
       const day = date.getDate().toString().padStart(2, '0');
       const month = (date.getMonth() + 1).toString().padStart(2, '0');
-      const year = date.getFullYear();
-      return `${day}/${month}/${year}`;
+      const year = (date.getFullYear() % 100).toString().padStart(2, '0');
+      return `${day}-${month}-${year}`;
     } catch (e) {
       return dateString;
     }
   };
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
-    setFiles(prev => [...prev, ...acceptedFiles]);
-    setProcessing(true);
+    if (acceptedFiles.length === 0) return;
+    
+    const newFile = acceptedFiles[0];
+    setFile(newFile);
+    setLoading(true);
     setError(null);
 
     try {
-      const file = acceptedFiles[0];
-      const extractedData = await processReceipt(file);
+      const receiptData = await processReceipt(newFile);
+      console.log('Receipt data processed:', receiptData);
+      setProcessedData(receiptData);
       
-      console.log('Raw OCR data:', extractedData);
-
-      // Parse the date from DD/MM/YYYY format to YYYY-MM-DD for input
-      let formattedDate = new Date().toISOString().split('T')[0];
-      if (extractedData.date) {
-        console.log('Extracted date before parsing:', extractedData.date);
-        const [day, month, year] = extractedData.date.split('/').map(num => parseInt(num, 10));
-        console.log('Parsed date components:', { day, month, year });
-        
-        // Create date in local timezone to avoid timezone offset issues
-        const parsedDate = new Date(Date.UTC(year, month - 1, day));
-        console.log('Parsed date object:', parsedDate);
-        
-        if (!isNaN(parsedDate.getTime())) {
-          // Format as YYYY-MM-DD while preserving the correct date
-          formattedDate = parsedDate.toISOString().split('T')[0];
-          console.log('Final formatted date:', formattedDate);
-        }
+      // Directly use the processed receipt data to fill form fields
+      setAmount(receiptData.amount.toFixed(2));
+      setDate(receiptData.date);
+      setCategory(receiptData.category);
+      setDescription(receiptData.description || '');
+      if (receiptData.projectCode) {
+        setProjectCode(receiptData.projectCode);
       }
-      
-      setCurrentForm(prev => ({
-        ...prev,
-        vendor: extractedData.vendor || '',
-        amount: extractedData.amount || 0,
-        date: formattedDate,
-        category: extractedData.category || '',
-        description: extractedData.description || '',
-        fullText: extractedData.fullText || '',
-      }));
       
       setSuccess(true);
     } catch (err) {
+      console.error('Error processing receipt:', err);
       setError('Failed to process receipt. Please try again or enter details manually.');
-      console.error('Receipt processing error:', err);
     } finally {
-      setProcessing(false);
+      setLoading(false);
     }
   }, []);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: {
-      'image/*': ['.jpeg', '.jpg', '.png'],
+      'image/*': ['.jpeg', '.jpg', '.png']
     },
-    maxFiles: 1,
+    maxFiles: 1
   });
+
+  const downloadPDF = () => {
+    if (!pdfData) return;
+    
+    try {
+      const pdfUrl = URL.createObjectURL(pdfData.blob);
+      const link = document.createElement('a');
+      link.href = pdfUrl;
+      link.download = `expense_report_${pdfData.reportId}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(pdfUrl);
+    } catch (downloadError) {
+      console.error('Error downloading PDF:', downloadError);
+      setError('Failed to download PDF. Please try again.');
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Validate form data before submission
-    if (!currentForm.vendor || !currentForm.amount || !currentForm.date || !currentForm.category || !currentForm.description) {
-      setError('Please fill in all required fields');
+    if (!file || !userData) {
+      setError('Please select a receipt image and ensure you are logged in');
       return;
     }
 
-    setProcessing(true);
+    setLoading(true);
     setError(null);
+    setPdfData(null);
 
     try {
-      // Create FormData object
-      const formData = new FormData();
-      
-      // Append receipt file if exists
-      if (files.length > 0) {
-        formData.append('receipt', files[0]);
+      // Create expense report data
+      const expenseReport: ExpenseReport = {
+        id: crypto.randomUUID(),
+        userId: userData.uid,
+        userName: userData.email,
+        department: userData.department || 'General',
+        receipts: processedData ? [processedData] : [],
+        totalAmount: parseFloat(amount),
+        submittedAt: new Date().toISOString(),
+        status: 'pending',
+        receiptUrls: []
+      };
+
+      try {
+        // Generate PDF
+        console.log('Generating PDF...');
+        const pdfBlob = generatePDFReport(expenseReport);
+        console.log('PDF blob generated:', pdfBlob);
+        setPdfData({ blob: pdfBlob, reportId: expenseReport.id });
+      } catch (pdfError) {
+        console.error('PDF generation error:', pdfError);
+        setError('Failed to generate PDF report');
+        return;
       }
 
-      // Append form fields with null checks
-      formData.append('vendor', currentForm.vendor || '');
-      formData.append('amount', (currentForm.amount || 0).toString());
-      formData.append('date', currentForm.date || new Date().toISOString().split('T')[0]);
-      formData.append('category', currentForm.category || '');
-      formData.append('description', currentForm.description || '');
-      formData.append('fullText', currentForm.fullText || '');
-      if (currentForm.projectCode) {
-        formData.append('projectCode', currentForm.projectCode);
-      }
+      // Submit to backend
+      const formData = new FormData();
+      formData.append('receipt', file);
+      formData.append('amount', amount);
+      formData.append('category', category);
+      formData.append('date', date);
+      formData.append('description', description);
+      if (projectCode) formData.append('projectCode', projectCode);
 
       const response = await fetch('/api/expenses', {
         method: 'POST',
-        credentials: 'include',
         body: formData,
       });
 
-      if (response.status === 401) {
-        throw new Error('Please sign in to submit expenses');
-      }
-
-      const data = await response.json();
-
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to submit expense');
+        throw new Error('Failed to submit expense');
       }
-      
-      // Reset form state
-      setSuccess(true);
-      setFiles([]);
-      setCurrentForm({
-        vendor: '',
-        amount: 0,
-        date: new Date().toISOString().split('T')[0],
-        category: '',
-        fullText: '',
-        description: '',
-      });
 
-      // Clear success message after 3 seconds
+      const expenseData = await response.json();
+
+      // Check if receipt needs to be flagged and send notification
+      if (processedData && (
+        processedData.anomaly !== 'Normal' || 
+        processedData.amount > 100 || // Spending limit check
+        !processedData.vendor
+      )) {
+        try {
+          const notifyResponse = await fetch('/api/notify', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              receipt: {
+                ...processedData,
+                id: expenseReport.id // Add the expense ID for approval/rejection links
+              }
+            }),
+          });
+
+          if (!notifyResponse.ok) {
+            console.error('Failed to send notification:', await notifyResponse.text());
+          }
+        } catch (notifyError) {
+          console.error('Error sending notification:', notifyError);
+        }
+      }
+
+      setSuccess(true);
+      setFile(null);
+      downloadPDF();
+
+      // Reset form after 10 seconds
       setTimeout(() => {
         setSuccess(false);
-      }, 3000);
-
+        setProcessedData(null);
+        setPdfData(null);
+      }, 10000);
     } catch (err) {
-      console.error('Submit error:', err);
-      setError(err instanceof Error ? err.message : 'Failed to submit expense. Please try again.');
+      console.error('Error submitting expense:', err);
+      setError(err instanceof Error ? err.message : 'Failed to submit expense');
     } finally {
-      setProcessing(false);
+      setLoading(false);
     }
   };
 
@@ -210,31 +238,26 @@ export default function SubmitExpensePage() {
               </div>
             </div>
 
-            {files.length > 0 && (
-              <div className="mt-4 space-y-2">
-                {files.map((file, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
-                  >
-                    <div className="flex items-center space-x-3">
-                      <BsReceipt className="text-gray-400" />
-                      <span className="text-sm text-gray-600 truncate">
-                        {file.name}
-                      </span>
-                    </div>
-                    <button
-                      onClick={() => setFiles(files.filter((_, i) => i !== index))}
-                      className="text-red-500 hover:text-red-600"
-                    >
-                      <BsTrash />
-                    </button>
+            {file && (
+              <div className="mt-4">
+                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div className="flex items-center space-x-3">
+                    <BsReceipt className="text-gray-400" />
+                    <span className="text-sm text-gray-600 truncate">
+                      {file.name}
+                    </span>
                   </div>
-                ))}
+                  <button
+                    onClick={() => setFile(null)}
+                    className="text-red-500 hover:text-red-600"
+                  >
+                    <BsTrash />
+                  </button>
+                </div>
               </div>
             )}
 
-            {processing && (
+            {loading && (
               <div className="mt-4 p-4 bg-blue-50 rounded-lg">
                 <div className="flex items-center space-x-3">
                   <div className="animate-spin">
@@ -246,26 +269,25 @@ export default function SubmitExpensePage() {
                 </div>
               </div>
             )}
+
+            {processedData && (
+              <div className="mt-4 p-4 bg-gray-50 rounded-lg space-y-2">
+                <h3 className="font-medium">Processed Receipt Data:</h3>
+                <p><span className="font-medium">Vendor:</span> {processedData.vendor}</p>
+                <p><span className="font-medium">Amount:</span> ${processedData.amount}</p>
+                <p><span className="font-medium">Date:</span> {processedData.date}</p>
+                <p><span className="font-medium">Category:</span> {processedData.category}</p>
+                {processedData.anomaly !== 'Normal' && (
+                  <p className="text-red-600">
+                    <span className="font-medium">Warning:</span> {processedData.anomaly}
+                  </p>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Right Column - Form */}
           <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Vendor
-              </label>
-              <input
-                type="text"
-                value={currentForm.vendor}
-                onChange={e =>
-                  setCurrentForm(prev => ({ ...prev, vendor: e.target.value }))
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Enter vendor name"
-                required
-              />
-            </div>
-
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Amount
@@ -275,13 +297,8 @@ export default function SubmitExpensePage() {
                 <input
                   type="number"
                   step="0.01"
-                  value={currentForm.amount}
-                  onChange={e =>
-                    setCurrentForm(prev => ({
-                      ...prev,
-                      amount: parseFloat(e.target.value),
-                    }))
-                  }
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
                   className="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="0.00"
                   required
@@ -301,7 +318,7 @@ export default function SubmitExpensePage() {
                 <BsCalendar className="text-gray-400 mr-2" />
                 <input
                   type="text"
-                  value={formatDisplayDate(currentForm.date)}
+                  value={formatDisplayDate(date)}
                   readOnly
                   className="w-full focus:outline-none cursor-pointer bg-transparent"
                   placeholder="Select date"
@@ -313,12 +330,9 @@ export default function SubmitExpensePage() {
                   <div className="p-2">
                     <input
                       type="date"
-                      value={currentForm.date}
+                      value={date}
                       onChange={(e) => {
-                        setCurrentForm(prev => ({
-                          ...prev,
-                          date: e.target.value
-                        }));
+                        setDate(e.target.value);
                         setShowDatePicker(false);
                       }}
                       className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -328,10 +342,7 @@ export default function SubmitExpensePage() {
                     <button
                       type="button"
                       onClick={() => {
-                        setCurrentForm(prev => ({
-                          ...prev,
-                          date: new Date().toISOString().split('T')[0]
-                        }));
+                        setDate(new Date().toISOString().split('T')[0]);
                         setShowDatePicker(false);
                       }}
                       className="text-sm text-blue-600 hover:text-blue-700"
@@ -355,10 +366,8 @@ export default function SubmitExpensePage() {
                 Category
               </label>
               <select
-                value={currentForm.category}
-                onChange={e =>
-                  setCurrentForm(prev => ({ ...prev, category: e.target.value }))
-                }
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 required
               >
@@ -377,13 +386,8 @@ export default function SubmitExpensePage() {
                 Description
               </label>
               <textarea
-                value={currentForm.description}
-                onChange={e =>
-                  setCurrentForm(prev => ({
-                    ...prev,
-                    description: e.target.value,
-                  }))
-                }
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
                 rows={3}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="Enter expense description"
@@ -397,13 +401,8 @@ export default function SubmitExpensePage() {
               </label>
               <input
                 type="text"
-                value={currentForm.projectCode || ''}
-                onChange={e =>
-                  setCurrentForm(prev => ({
-                    ...prev,
-                    projectCode: e.target.value,
-                  }))
-                }
+                value={projectCode}
+                onChange={(e) => setProjectCode(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="Enter project code"
               />
@@ -419,21 +418,32 @@ export default function SubmitExpensePage() {
             {success && (
               <div className="p-3 bg-green-50 border border-green-100 rounded-lg flex items-center space-x-2 text-green-600">
                 <BsCheck2Circle />
-                <span className="text-sm">Receipt processed successfully!</span>
+                <span className="text-sm">
+                  Expense submitted successfully!
+                  {pdfData && (
+                    <button
+                      type="button"
+                      onClick={downloadPDF}
+                      className="ml-2 underline hover:text-green-700"
+                    >
+                      Download PDF Report
+                    </button>
+                  )}
+                </span>
               </div>
             )}
 
             <button
               type="submit"
-              disabled={processing}
+              disabled={loading || !file}
               className={`w-full flex items-center justify-center px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white
                 ${
-                  processing
+                  loading || !file
                     ? 'bg-blue-400 cursor-not-allowed'
                     : 'bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'
                 }`}
             >
-              {processing ? (
+              {loading ? (
                 <>
                   <div className="animate-spin mr-2">
                     <BsRobot />

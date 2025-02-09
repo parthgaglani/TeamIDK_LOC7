@@ -9,6 +9,7 @@ interface Message {
   type: 'user' | 'assistant';
   content: string;
   timestamp: Date;
+  topic?: string;
 }
 
 const suggestedQuestions = [
@@ -23,7 +24,7 @@ export default function AIAssistantPage() {
     {
       id: 1,
       type: 'assistant',
-      content: "Hello! I'm your AI expense assistant. How can I help you today?",
+      content: "Hi! I'm your AI expense assistant. I can help you with:\n\n• Expense submission guidelines\n• Category-specific requirements\n• Spending limits\n• General submission process\n\nHow can I help you today?",
       timestamp: new Date(),
     },
   ]);
@@ -40,7 +41,7 @@ export default function AIAssistantPage() {
   }, [messages]);
 
   const handleSendMessage = async (content: string) => {
-    if (!content.trim()) return;
+    if (!content.trim() || isTyping) return;
 
     // Add user message
     const userMessage: Message = {
@@ -53,54 +54,54 @@ export default function AIAssistantPage() {
     setInputMessage('');
     setIsTyping(true);
 
-    // Simulate AI response
-    setTimeout(() => {
+    try {
+      const response = await fetch('/api/chatbot', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question: content.trim() })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to get answer');
+      }
+
       const aiResponse: Message = {
         id: messages.length + 2,
         type: 'assistant',
-        content: getAIResponse(content.trim()),
+        content: data.answer,
+        topic: data.topic,
         timestamp: new Date(),
       };
       setMessages(prev => [...prev, aiResponse]);
+    } catch (error) {
+      const errorMessage: Message = {
+        id: messages.length + 2,
+        type: 'assistant',
+        content: "I'm sorry, I encountered an error. Please try asking your question again.",
+        timestamp: new Date(),
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
       setIsTyping(false);
-    }, 1000);
-  };
-
-  const getAIResponse = (question: string): string => {
-    // Simulate AI responses based on keywords
-    if (question.toLowerCase().includes('meal')) {
-      return 'The daily meal expense limit is $50 per person for business meals. For team events, please get pre-approval for groups larger than 5 people.';
     }
-    if (question.toLowerCase().includes('reject')) {
-      return 'To correct a rejected expense report:\n1. Go to the rejected report in your expense history\n2. Review the rejection comments\n3. Make the necessary corrections\n4. Resubmit with additional documentation if required';
-    }
-    if (question.toLowerCase().includes('receipt')) {
-      return 'For travel expenses, you need to provide:\n- Flight/train tickets and boarding passes\n- Hotel bills\n- Transportation receipts (taxi, rental car)\n- Itemized receipts for meals over $25';
-    }
-    if (question.toLowerCase().includes('approval')) {
-      return 'Expense reports are typically reviewed within 2-3 business days. Urgent requests can be flagged for priority processing.';
-    }
-    return 'I understand your question about expense policies. Could you please provide more specific details so I can give you the most accurate information?';
   };
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">AI Expense Assistant</h1>
-        <p className="text-gray-600">Get instant answers about expense policies and guidance</p>
-      </div>
+    <div className="container mx-auto px-4 py-8">
+      <h1 className="text-2xl font-bold mb-4">AI Expense Assistant</h1>
 
-      {/* Chat Interface */}
-      <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+      <div className="max-w-4xl mx-auto space-y-4">
         {/* Suggested Questions */}
-        <div className="p-6 border-b border-gray-200">
-          <h2 className="text-sm font-medium text-gray-700 mb-4">Suggested Questions</h2>
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+          <h2 className="text-sm font-medium text-gray-700 mb-3">Suggested Questions</h2>
           <div className="flex flex-wrap gap-2">
             {suggestedQuestions.map((question, index) => (
               <button
                 key={index}
                 onClick={() => handleSendMessage(question)}
-                className="px-4 py-2 bg-gray-50 text-gray-700 rounded-lg text-sm hover:bg-gray-100 transition-colors"
+                className="px-3 py-1 bg-blue-50 text-blue-700 rounded-md text-sm hover:bg-blue-100 transition-colors"
               >
                 {question}
               </button>
@@ -108,9 +109,10 @@ export default function AIAssistantPage() {
           </div>
         </div>
 
-        {/* Messages */}
-        <div className="h-[500px] overflow-y-auto p-6">
-          <div className="space-y-4">
+        {/* Chat Interface */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col h-[600px]">
+          {/* Messages */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-4">
             <AnimatePresence>
               {messages.map((message) => (
                 <motion.div
@@ -133,11 +135,18 @@ export default function AIAssistantPage() {
                     <div
                       className={`mx-2 px-4 py-2 rounded-lg ${
                         message.type === 'assistant'
-                          ? 'bg-gray-100 text-gray-800'
+                          ? 'bg-gray-50 text-gray-800'
                           : 'bg-blue-600 text-white'
                       }`}
                     >
-                      <div className="whitespace-pre-wrap">{message.content}</div>
+                      <div className="whitespace-pre-wrap text-sm">{message.content}</div>
+                      {message.topic && (
+                        <div className={`text-xs mt-1 ${
+                          message.type === 'assistant' ? 'text-gray-500' : 'text-blue-100'
+                        }`}>
+                          Topic: {message.topic}
+                        </div>
+                      )}
                       <div
                         className={`text-xs mt-1 ${
                           message.type === 'assistant' ? 'text-gray-500' : 'text-blue-100'
@@ -159,54 +168,61 @@ export default function AIAssistantPage() {
                 animate={{ opacity: 1 }}
                 className="flex items-center text-gray-500 text-sm"
               >
-                <BsRobot className="mr-2" />
-                <span>AI is typing...</span>
+                <div className="bg-blue-100 p-2 rounded-full mr-2">
+                  <BsRobot className="text-blue-600" />
+                </div>
+                <span>AI is typing</span>
                 <span className="ml-2 animate-pulse">...</span>
               </motion.div>
             )}
             <div ref={messagesEndRef} />
           </div>
-        </div>
 
-        {/* Input Area */}
-        <div className="p-4 border-t border-gray-200">
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              handleSendMessage(inputMessage);
-            }}
-            className="flex items-center space-x-4"
-          >
-            <input
-              type="text"
-              value={inputMessage}
-              onChange={(e) => setInputMessage(e.target.value)}
-              placeholder="Ask about expense policies or get help with reports..."
-              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-            <button
-              type="submit"
-              disabled={!inputMessage.trim()}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          {/* Input Area */}
+          <div className="p-4 border-t border-gray-200">
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSendMessage(inputMessage);
+              }}
+              className="flex items-center space-x-3"
             >
-              <BsSend />
-            </button>
-          </form>
+              <input
+                type="text"
+                value={inputMessage}
+                onChange={(e) => setInputMessage(e.target.value)}
+                placeholder="Ask about expense policies or get help with reports..."
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                disabled={isTyping}
+              />
+              <button
+                type="submit"
+                disabled={!inputMessage.trim() || isTyping}
+                className={`flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white ${
+                  !inputMessage.trim() || isTyping
+                    ? 'bg-blue-300 cursor-not-allowed'
+                    : 'bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'
+                }`}
+              >
+                <BsSend />
+              </button>
+            </form>
+          </div>
         </div>
-      </div>
 
-      {/* Help Tips */}
-      <div className="mt-6 bg-blue-50 rounded-lg p-4">
-        <div className="flex items-start">
-          <BsInfoCircle className="text-blue-600 mt-1 mr-2" />
-          <div>
-            <h3 className="text-sm font-medium text-blue-900">Pro Tips</h3>
-            <ul className="mt-2 text-sm text-blue-700 space-y-1">
-              <li>• Ask specific questions about expense policies</li>
-              <li>• Get help with rejected expense reports</li>
-              <li>• Learn about required documentation</li>
-              <li>• Understand expense limits and categories</li>
-            </ul>
+        {/* Help Tips */}
+        <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+          <div className="flex items-start">
+            <BsInfoCircle className="text-blue-600 mt-1 mr-2" />
+            <div>
+              <h3 className="text-sm font-medium text-gray-900">Pro Tips</h3>
+              <ul className="mt-2 text-sm text-gray-600 space-y-1">
+                <li>• Ask specific questions about expense policies</li>
+                <li>• Get help with rejected expense reports</li>
+                <li>• Learn about required documentation</li>
+                <li>• Understand expense limits and categories</li>
+              </ul>
+            </div>
           </div>
         </div>
       </div>

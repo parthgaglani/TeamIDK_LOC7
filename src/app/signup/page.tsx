@@ -33,9 +33,12 @@ export default function SignupPage() {
     }
 
     try {
-      await createUserWithRole(email, password);
+      console.log('Starting user creation...'); // Debug log
+      const userData = await createUserWithRole(email, password);
+      console.log('User created successfully:', userData); // Debug log
       router.push('/employee/dashboard');
     } catch (err: any) {
+      console.error('Signup error:', err); // Debug log
       setError(err.message || 'Failed to create account');
     } finally {
       setLoading(false);

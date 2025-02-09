@@ -37,6 +37,12 @@ export interface ExtractedReceipt {
   projectCode?: string;
 }
 
+export interface ProcessedReceipt extends ExtractedReceipt {
+  justification: string;
+  anomaly: string;
+  id?: string;
+}
+
 const CATEGORIES = [
   'Travel',
   'Meals',
@@ -44,7 +50,7 @@ const CATEGORIES = [
   'Equipment',
   'Software',
   'Other',
-];
+] as const;
 
 const COMMON_RECEIPT_WORDS = [
   'receipt',
@@ -113,7 +119,7 @@ function extractVendorFromText(text: string): string {
     const lower = line.toLowerCase().trim();
     return (
       line.length > 0 &&
-      !COMMON_RECEIPT_WORDS.some(word => lower.includes(word)) &&
+      !COMMON_RECEIPT_WORDS.includes(lower) &&
       !/^\d/.test(line) && // Skip lines starting with numbers
       !/total|amount|tax|date/i.test(line) // Skip common receipt headers
     );
@@ -197,24 +203,38 @@ function findDatesInLine(line: string): string | null {
         day = parseInt(part1, 10);
         month = parseInt(part2, 10);
         year = parseInt(part3, 10);
-        // Convert 2-digit year to 4-digit
-        year = year + (year >= 50 ? 1900 : 2000);
+        // Convert 2-digit year to 4-digit for validation
+        const fullYear = year + (year >= 50 ? 1900 : 2000);
+        
+        // Validate the date components
+        if (day >= 1 && day <= 31 && month >= 1 && month <= 12 && fullYear >= 1900 && fullYear <= 2100) {
+          // Return in DD-MM-YY format
+          return `${day.toString().padStart(2, '0')}-${month.toString().padStart(2, '0')}-${year.toString().padStart(2, '0')}`;
+        }
       } else if (part3.length === 4) {
         // DD/MM/YYYY format
         day = parseInt(part1, 10);
         month = parseInt(part2, 10);
         year = parseInt(part3, 10);
+        
+        // Validate the date components
+        if (day >= 1 && day <= 31 && month >= 1 && month <= 12 && year >= 1900 && year <= 2100) {
+          // Convert to DD-MM-YY format
+          const shortYear = (year % 100).toString().padStart(2, '0');
+          return `${day.toString().padStart(2, '0')}-${month.toString().padStart(2, '0')}-${shortYear}`;
+        }
       } else {
         // YYYY/MM/DD format
         year = parseInt(part1, 10);
         month = parseInt(part2, 10);
         day = parseInt(part3, 10);
-      }
-      
-      // Validate the date components
-      if (day >= 1 && day <= 31 && month >= 1 && month <= 12 && year >= 1900 && year <= 2100) {
-        // Return in a consistent format (DD/MM/YYYY)
-        return `${day}/${month}/${year}`;
+        
+        // Validate the date components
+        if (day >= 1 && day <= 31 && month >= 1 && month <= 12 && year >= 1900 && year <= 2100) {
+          // Convert to DD-MM-YY format
+          const shortYear = (year % 100).toString().padStart(2, '0');
+          return `${day.toString().padStart(2, '0')}-${month.toString().padStart(2, '0')}-${shortYear}`;
+        }
       }
     }
   }
@@ -228,7 +248,7 @@ function generateDescription(text: string, vendor: string, category: string): st
     const lower = line.toLowerCase().trim();
     return (
       line.length > 0 &&
-      !COMMON_RECEIPT_WORDS.some(word => lower.includes(word)) &&
+      !COMMON_RECEIPT_WORDS.includes(lower) &&
       !/^\d/.test(line) && // Skip lines starting with numbers
       !/total|amount|tax|date/i.test(line) // Skip common receipt headers
     );
@@ -260,7 +280,7 @@ export async function extractTextFromImage(imageFile: File): Promise<string> {
   }
 }
 
-export async function processReceipt(file: File): Promise<ExtractedReceipt> {
+export async function processReceipt(file: File): Promise<ProcessedReceipt> {
   const worker = await createWorker('eng');
   let imageUrl: string | null = null;
 
@@ -282,24 +302,32 @@ export async function processReceipt(file: File): Promise<ExtractedReceipt> {
         enhanceCategoryWithAI(text, category)
       ]);
 
-      return {
+      const result: ProcessedReceipt = {
         vendor: aiVendor || vendor,
         amount,
         date,
         category: aiCategory || category,
         description,
         fullText: text,
+        justification: amount > 100 ? 'Amount exceeds limit' : 'Within limits',
+        anomaly: amount > 100 ? 'Flagged - Amount exceeds limit' : 'Normal'
       };
+
+      return result;
     } catch (aiError) {
       console.warn('AI enhancement failed, using basic extraction:', aiError);
-      return {
+      const result: ProcessedReceipt = {
         vendor,
         amount,
         date,
         category,
         description,
         fullText: text,
+        justification: amount > 100 ? 'Amount exceeds limit' : 'Within limits',
+        anomaly: amount > 100 ? 'Flagged - Amount exceeds limit' : 'Normal'
       };
+
+      return result;
     }
   } catch (error) {
     console.error('Error processing receipt:', error);
@@ -310,6 +338,11 @@ export async function processReceipt(file: File): Promise<ExtractedReceipt> {
     }
     await worker.terminate();
   }
+}
+
+interface HfClassificationResult {
+  label: string;
+  score: number;
 }
 
 async function enhanceVendorWithAI(text: string, fallbackVendor: string): Promise<string> {
@@ -326,8 +359,8 @@ async function enhanceVendorWithAI(text: string, fallbackVendor: string): Promis
       return classification;
     });
 
-    if (result && (result as any).label) {
-      return (result as any).label;
+    if (result && typeof result === 'object' && 'label' in result && typeof result.label === 'string') {
+      return result.label;
     }
 
     return fallbackVendor;
@@ -351,9 +384,9 @@ async function enhanceCategoryWithAI(text: string, fallbackCategory: string): Pr
       return classification;
     });
 
-    if (result && (result as any).label) {
-      const aiCategory = (result as any).label;
-      return CATEGORIES.includes(aiCategory) ? aiCategory : fallbackCategory;
+    if (result && typeof result === 'object' && 'label' in result && typeof result.label === 'string') {
+      const aiCategory = result.label;
+      return CATEGORIES.includes(aiCategory as any) ? aiCategory : fallbackCategory;
     }
 
     return fallbackCategory;

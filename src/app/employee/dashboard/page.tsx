@@ -1,5 +1,5 @@
 import { DashboardClient } from './client';
-import { Dropdown } from '@/components/ui/Dropdown';
+import { Dropdown } from '@/app/components/ui/Dropdown';
 
 export default function DashboardPage() {
   // Add period options
