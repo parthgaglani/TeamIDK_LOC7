@@ -352,41 +352,41 @@ export default function SubmitExpensePage() {
 
   return (
     <div className={styles.container}>
-      <div className={styles.card}>
-        <h1 className={styles.title}>Submit Expense</h1>
+      <div className="neon-card p-6">
+        <h1 className="text-2xl font-bold neon-text mb-6">Submit Expense</h1>
 
-        <div className={styles.grid}>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           {/* Left Column - File Upload */}
           <div>
             <div
               {...getRootProps()}
-              className={`${styles.dropzone.base} ${
-                isDragActive ? styles.dropzone.active : styles.dropzone.inactive
+              className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors ${
+                isDragActive ? 'border-neon-primary bg-neon-primary/10' : 'border-neon-secondary hover:border-neon-primary'
               }`}
             >
               <input {...getInputProps()} />
               <div className="space-y-4">
-                <div className={styles.uploadIcon.container}>
-                  <BsUpload className={styles.uploadIcon.icon} />
+                <div className="w-16 h-16 mx-auto rounded-full bg-darker-bg/50 flex items-center justify-center">
+                  <BsUpload className="w-8 h-8 text-neon-secondary" />
                 </div>
                 <div>
-                  <p className="text-gray-700 font-medium">
+                  <p className="text-neon-secondary font-medium">
                     {isDragActive ? 'Drop the receipt here' : 'Drag & drop receipt'}
                   </p>
-                  <p className="text-sm text-gray-500 mt-1">or click to browse</p>
+                  <p className="text-sm text-neon-secondary/70 mt-1">or click to browse</p>
                 </div>
-                <div className="text-xs text-gray-500">
+                <div className="text-xs text-neon-secondary/60">
                   Supported formats: JPEG, PNG
                 </div>
               </div>
             </div>
 
             {file && (
-              <div className={styles.filePreview}>
-                <div className={styles.fileCard}>
+              <div className="mt-4 p-3 bg-darker-bg/50 rounded-lg border border-neon-secondary">
+                <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
-                    <BsReceipt className="text-gray-400" />
-                    <span className="text-sm text-gray-600 truncate">
+                    <BsReceipt className="text-neon-secondary" />
+                    <span className="text-sm text-neon-secondary truncate">
                       {file.name}
                     </span>
                   </div>
@@ -395,7 +395,7 @@ export default function SubmitExpensePage() {
                       e.stopPropagation();
                       setFile(null);
                     }}
-                    className="text-red-500 hover:text-red-600"
+                    className="text-red-500 hover:text-red-400"
                   >
                     <BsTrash />
                   </button>
@@ -404,12 +404,12 @@ export default function SubmitExpensePage() {
             )}
 
             {loading && (
-              <div className={styles.loadingCard}>
+              <div className="mt-4 p-4 bg-darker-bg/50 rounded-lg border border-neon-secondary">
                 <div className="flex items-center space-x-3">
                   <div className="animate-spin">
-                    <BsRobot className="text-blue-500" />
+                    <BsRobot className="text-neon-secondary" />
                   </div>
-                  <span className="text-sm text-blue-600">
+                  <span className="text-sm text-neon-secondary">
                     Processing receipt...
                   </span>
                 </div>
@@ -417,14 +417,14 @@ export default function SubmitExpensePage() {
             )}
 
             {processedData && (
-              <div className={styles.processedDataCard}>
-                <h3 className="font-medium">Processed Receipt Data:</h3>
-                <p><span className="font-medium">Vendor:</span> {processedData.vendor}</p>
-                <p><span className="font-medium">Amount:</span> ${processedData.amount}</p>
-                <p><span className="font-medium">Date:</span> {processedData.date}</p>
-                <p><span className="font-medium">Category:</span> {processedData.category}</p>
+              <div className="mt-4 p-4 bg-darker-bg/50 rounded-lg border border-neon-secondary space-y-2">
+                <h3 className="font-medium text-neon-secondary">Processed Receipt Data:</h3>
+                <p className="text-neon-secondary"><span className="font-medium">Vendor:</span> {processedData.vendor}</p>
+                <p className="text-neon-secondary"><span className="font-medium">Amount:</span> ${processedData.amount}</p>
+                <p className="text-neon-secondary"><span className="font-medium">Date:</span> {processedData.date}</p>
+                <p className="text-neon-secondary"><span className="font-medium">Category:</span> {processedData.category}</p>
                 {processedData.anomaly !== 'Normal' && (
-                  <p className="text-red-600">
+                  <p className="text-red-400">
                     <span className="font-medium">Warning:</span> {processedData.anomaly}
                   </p>
                 )}
@@ -433,57 +433,55 @@ export default function SubmitExpensePage() {
           </div>
 
           {/* Right Column - Form */}
-          <form onSubmit={handleSubmit} className={styles.form}>
+          <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <label className={styles.label}>
+              <label className="block text-sm font-medium text-neon-secondary mb-1">
                 Amount
               </label>
-              <div className={styles.inputGroup}>
-                <span className="absolute left-3 top-2 text-gray-500">$</span>
+              <div className="relative">
+                <span className="absolute left-3 top-2 text-neon-secondary">$</span>
                 <input
                   type="number"
                   step="0.01"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
-                  className={styles.amountInput}
+                  className="neon-input w-full pl-7 text-white placeholder-gray-400"
                   placeholder="0.00"
                   required
                 />
               </div>
             </div>
 
-            <div className={styles.inputGroup}>
-              <label className={styles.label}>
+            <div>
+              <label className="block text-sm font-medium text-neon-secondary mb-1">
                 Date
               </label>
               <div 
-                className={styles.datePickerButton}
+                className="relative neon-input w-full cursor-pointer"
                 onClick={() => setShowDatePicker(!showDatePicker)}
               >
-                <BsCalendar className="text-gray-400 mr-2" />
+                <BsCalendar className="absolute left-3 top-2.5 text-neon-secondary" />
                 <input
                   type="text"
                   value={date ? formatDisplayDate(date) : ''}
                   readOnly
-                  className={styles.input}
+                  className="w-full pl-10 bg-transparent text-white cursor-pointer"
                   placeholder="Select date"
                 />
               </div>
               
               {showDatePicker && (
-                <div className={styles.datePickerDropdown}>
-                  <div className="p-2">
-                    <input
-                      type="date"
-                      value={date}
-                      onChange={(e) => {
-                        setDate(e.target.value);
-                        setShowDatePicker(false);
-                      }}
-                      className={styles.input}
-                    />
-                  </div>
-                  <div className="p-2 bg-gray-50 border-t border-gray-200 flex justify-between">
+                <div className="absolute mt-1 p-2 bg-darker-bg border border-neon-secondary rounded-lg shadow-lg z-10">
+                  <input
+                    type="date"
+                    value={date}
+                    onChange={(e) => {
+                      setDate(e.target.value);
+                      setShowDatePicker(false);
+                    }}
+                    className="neon-input w-full text-white"
+                  />
+                  <div className="mt-2 flex justify-between">
                     <button
                       type="button"
                       onClick={() => {
@@ -494,14 +492,14 @@ export default function SubmitExpensePage() {
                         setDate(`${year}-${month}-${day}`);
                         setShowDatePicker(false);
                       }}
-                      className="text-sm text-blue-600 hover:text-blue-700"
+                      className="text-sm text-neon-primary hover:text-neon-primary/80"
                     >
                       Today
                     </button>
                     <button
                       type="button"
                       onClick={() => setShowDatePicker(false)}
-                      className="text-sm text-gray-600 hover:text-gray-700"
+                      className="text-sm text-neon-secondary hover:text-neon-secondary/80"
                     >
                       Cancel
                     </button>
@@ -511,61 +509,61 @@ export default function SubmitExpensePage() {
             </div>
 
             <div>
-              <label className={styles.label}>
+              <label className="block text-sm font-medium text-neon-secondary mb-1">
                 Category
               </label>
               <select
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
-                className={styles.input}
+                className="neon-input w-full text-white"
                 required
               >
-                <option value="">Select a category</option>
-                <option value="Travel">Travel</option>
-                <option value="Meals">Meals</option>
-                <option value="Office Supplies">Office Supplies</option>
-                <option value="Equipment">Equipment</option>
-                <option value="Software">Software</option>
-                <option value="Other">Other</option>
+                <option value="" className="bg-darker-bg">Select a category</option>
+                <option value="Travel" className="bg-darker-bg">Travel</option>
+                <option value="Meals" className="bg-darker-bg">Meals</option>
+                <option value="Office Supplies" className="bg-darker-bg">Office Supplies</option>
+                <option value="Equipment" className="bg-darker-bg">Equipment</option>
+                <option value="Software" className="bg-darker-bg">Software</option>
+                <option value="Other" className="bg-darker-bg">Other</option>
               </select>
             </div>
 
             <div>
-              <label className={styles.label}>
+              <label className="block text-sm font-medium text-neon-secondary mb-1">
                 Description
               </label>
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 rows={3}
-                className={styles.input}
+                className="neon-input w-full text-white placeholder-gray-400"
                 placeholder="Enter expense description"
                 required
               />
             </div>
 
             <div>
-              <label className={styles.label}>
+              <label className="block text-sm font-medium text-neon-secondary mb-1">
                 Project Code (Optional)
               </label>
               <input
                 type="text"
                 value={projectCode}
                 onChange={(e) => setProjectCode(e.target.value)}
-                className={styles.input}
+                className="neon-input w-full text-white placeholder-gray-400"
                 placeholder="Enter project code"
               />
             </div>
 
             {error && (
-              <div className="p-3 bg-red-50 border border-red-100 rounded-lg flex items-center space-x-2 text-red-600">
+              <div className="p-3 bg-red-900/20 border border-red-500 rounded-lg flex items-center space-x-2 text-red-400">
                 <BsExclamationCircle />
                 <span className="text-sm">{error}</span>
               </div>
             )}
 
             {success && (
-              <div className="p-3 bg-green-50 border border-green-100 rounded-lg flex items-center space-x-2 text-green-600">
+              <div className="p-3 bg-green-900/20 border border-green-500 rounded-lg flex items-center space-x-2 text-green-400">
                 <BsCheck2Circle />
                 <span className="text-sm">
                   Expense submitted successfully!
@@ -573,7 +571,7 @@ export default function SubmitExpensePage() {
                     <button
                       type="button"
                       onClick={downloadPDF}
-                      className="ml-2 underline hover:text-green-700"
+                      className="ml-2 underline hover:text-green-300"
                     >
                       Download PDF Report
                     </button>
@@ -585,17 +583,15 @@ export default function SubmitExpensePage() {
             <button
               type="submit"
               disabled={loading || !file}
-              className={`${styles.submitButton.base} ${
-                loading || !file ? styles.submitButton.disabled : styles.submitButton.enabled
+              className={`w-full neon-button ${
+                loading || !file ? 'opacity-50 cursor-not-allowed' : ''
               }`}
             >
               {loading ? (
-                <>
-                  <div className="animate-spin mr-2">
-                    <BsRobot />
-                  </div>
-                  Processing...
-                </>
+                <div className="flex items-center justify-center">
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                  <span className="ml-2">Processing...</span>
+                </div>
               ) : (
                 'Submit Expense'
               )}
