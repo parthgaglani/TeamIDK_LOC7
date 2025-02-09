@@ -8,6 +8,18 @@ const transporter = nodemailer.createTransport({
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASSWORD
+  },
+  tls: {
+    rejectUnauthorized: false
+  }
+});
+
+// Verify transporter connection
+transporter.verify(function(error, success) {
+  if (error) {
+    console.error('Error verifying email transporter:', error);
+  } else {
+    console.log('Email server connection verified');
   }
 });
 
@@ -27,11 +39,16 @@ function generateApprovalLink(receiptId: string, action: 'approve' | 'reject'): 
 }
 
 export async function POST(request: Request) {
+  console.log('Notification endpoint called');
+  
   try {
     const data = await request.json();
+    console.log('Received notification data:', data);
+    
     const flaggedReceipt: ProcessedReceipt = data.receipt;
 
     if (!flaggedReceipt) {
+      console.error('No receipt data provided');
       return NextResponse.json({ error: 'No receipt data provided' }, { status: 400 });
     }
 
@@ -41,6 +58,13 @@ export async function POST(request: Request) {
       flaggedReceipt.anomaly !== 'Normal' ||
       !flaggedReceipt.vendor;
 
+    console.log('Should flag receipt:', shouldFlag, {
+      amount: flaggedReceipt.amount,
+      spendingLimit: SPENDING_LIMIT,
+      anomaly: flaggedReceipt.anomaly,
+      vendor: flaggedReceipt.vendor
+    });
+
     if (!shouldFlag) {
       return NextResponse.json({ message: 'Receipt does not require notification' });
     }
@@ -49,12 +73,12 @@ export async function POST(request: Request) {
     const emailContent = `
       <h2>Flagged Expense Report</h2>
       <div style="margin-bottom: 20px;">
-        <p><strong>Vendor:</strong> ${flaggedReceipt.vendor}</p>
-        <p><strong>Amount:</strong> $${flaggedReceipt.amount}</p>
+        <p><strong>Vendor:</strong> ${flaggedReceipt.vendor || 'Not provided'}</p>
+        <p><strong>Amount:</strong> $${flaggedReceipt.amount.toFixed(2)}</p>
         <p><strong>Date:</strong> ${flaggedReceipt.date}</p>
         <p><strong>Category:</strong> ${flaggedReceipt.category}</p>
-        <p><strong>Justification:</strong> ${flaggedReceipt.justification}</p>
-        <p><strong>Anomaly:</strong> ${flaggedReceipt.anomaly}</p>
+        <p><strong>Justification:</strong> ${flaggedReceipt.justification || 'Not provided'}</p>
+        <p><strong>Anomaly:</strong> ${flaggedReceipt.anomaly || 'None detected'}</p>
       </div>
       <div style="margin-bottom: 20px;">
         <h3>Reason for Flag:</h3>
@@ -71,7 +95,7 @@ export async function POST(request: Request) {
              style="background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; margin-right: 10px;">
             Approve
           </a>
-          <a href="${generateApprovalLink(flaggedReceipt.id, 'reject')}" 
+          <a href="${generateApprovalLink(flaggedReceipt.id, 'reject')}"
              style="background-color: #f44336; color: white; padding: 10px 20px; text-decoration: none;">
             Reject
           </a>
@@ -79,19 +103,31 @@ export async function POST(request: Request) {
       </div>
     `;
 
+    console.log('Attempting to send email to:', MANAGER_EMAIL);
+    
     // Send email
-    await transporter.sendMail({
-      from: process.env.EMAIL_USER,
-      to: MANAGER_EMAIL,
-      subject: 'Flagged Expense Report - Action Required',
-      html: emailContent
-    });
-
-    return NextResponse.json({ message: 'Notification sent successfully' });
+    try {
+      const info = await transporter.sendMail({
+        from: process.env.EMAIL_USER,
+        to: MANAGER_EMAIL,
+        subject: 'Flagged Expense Report - Action Required',
+        html: emailContent
+      });
+      
+      console.log('Email sent successfully:', info);
+      
+      return NextResponse.json({ 
+        message: 'Notification sent successfully',
+        emailInfo: info
+      });
+    } catch (emailError) {
+      console.error('Error sending email:', emailError);
+      throw emailError;
+    }
   } catch (error) {
-    console.error('Error sending notification:', error);
+    console.error('Error in notification endpoint:', error);
     return NextResponse.json(
-      { error: 'Failed to send notification' },
+      { error: 'Failed to send notification', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }
